@@ -64,10 +64,15 @@ CT_MODULES= \
 RT_MODULES= \
 	asn1rt \
 	asn1rt_per_bin \
+	asn1rt_per_bin_ur \
 	asn1rt_ber_bin \
+	asn1rt_ber_bin_ur \
 	asn1rt_ber_bin_v2 \
+	asn1rt_ber_bin_v2_ur \
 	asn1rt_per_bin_rt2ct \
+	asn1rt_per_bin_rt2ct_ur \
 	asn1rt_uper_bin \
+	asn1rt_uper_bin_ur \
 	asn1rt_check \
 	asn1rt_nif
 #	asn1_sup \

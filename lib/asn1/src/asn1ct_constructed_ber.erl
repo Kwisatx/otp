@@ -45,7 +45,11 @@
 -define(PRIMITIVE,   0).
 -define(CONSTRUCTED, 2#00100000).
 
-
+% undec_rest specific file endings
+-define(UR, case lists:member(undec_rest,get(encoding_options)) of
+                true  -> "_ur";
+                false -> ""
+            end).
 
 
 %%===============================================================================
@@ -1567,9 +1571,9 @@ empty_lb(ber_bin) ->
     "<<>>".
 
 rtmod(ber) ->
-    list_to_atom(?RT_BER_BIN);
+    list_to_atom(?RT_BER_BIN) ++ ?UR;
 rtmod(ber_bin) ->
-    list_to_atom(?RT_BER_BIN).
+    list_to_atom(?RT_BER_BIN) ++ ?UR.
 
 indefend_match(ber,used_var) ->
     "[0,0|R]";

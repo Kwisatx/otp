@@ -253,7 +253,9 @@ Binary = binary()
               value. If an asn1 spec is compiled with this option a tuple
               <c>{ok, Value, Rest}</c> is returned. <c>Rest</c> may be a
               list or a binary. Earlier versions of the compiler ignored
-              those following bytes.</p>
+              those following bytes.
+              Additionally, <c>asn1rt:decode</c> returns {error, incomplete} if
+              the ASN.1 packet received is incomplete.</p>
           </item>
           <tag><c>{inline, OutputName}</c></tag>
           <item>

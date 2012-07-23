@@ -33,6 +33,8 @@
 
 -import(asn1ct_gen, [emit/1,demit/1,get_record_name_prefix/0]).
 
+-define(Return_rest, lists:member(undec_rest,get(encoding_options))).
+
 %% ENCODE GENERATOR FOR SEQUENCE TYPE  ** **********
 
 
@@ -386,6 +388,13 @@ gen_dec_listofopentypes(DecObj,[{_Cname,{FirstPFN,PFNList},Term,TmpTerm,Prop}|Re
     emit([indent(N+6),"{'EXIT', ",{curr,reason},"} ->",nl]),
     emit([indent(N+9),"exit({'Type not compatible with table constraint',",
 	  {curr,reason},"});",nl]),
+    case ?Return_rest of
+    true ->
+        emit([indent(N+6),"{error, ","incomplete","} ->",nl]),
+        emit([indent(N+9),"exit({'Type not compatible with table constraint',",
+	      "incomplete","});",nl]);
+	false -> ok
+	end,
     emit([indent(N+6),"{",{curr,tmpterm},",_} ->",nl]),
     emit([indent(N+9),{curr,tmpterm},nl]),
 
@@ -1256,6 +1265,14 @@ gen_dec_line(Erule,TopType,Cname,Type,Pos,DecInfObj,Ext,Prop)  ->
 			emit([indent(6),"exit({'Type not ",
 			      "compatible with table constraint', ",
 			      {curr,reason},"});",nl]),
+			case ?Return_rest of
+			true ->
+				emit([indent(4),"{error,","incomplete","} ->",nl]),
+				emit([indent(6),"exit({'Type not ",
+				      "compatible with table constraint', ",
+				      "incomplete","});",nl]);
+			false -> ok
+			end,
 			asn1ct_name:new(tmpterm),
 			emit([indent(4),"{",{curr,tmpterm},", _} ->",nl]),
 			emit([indent(6),"{",{asis,Cname},", {",{curr,tmpterm},", ",
@@ -1291,6 +1308,14 @@ gen_dec_line(Erule,TopType,Cname,Type,Pos,DecInfObj,Ext,Prop)  ->
 			emit([indent(6),"exit({'Type not ",
 			      "compatible with table constraint', ",
 			      {curr,reason},"});",nl]),
+			case ?Return_rest of
+			true ->
+				emit(["    {error,","incomplete","} ->",nl]),
+				emit([indent(6),"exit({'Type not ",
+				      "compatible with table constraint', ",
+				      "incomplete","});",nl]);
+			false -> ok
+			end,
 			asn1ct_name:new(tmpterm),
 			emit([indent(4),"{",{curr,tmpterm},", _} ->",nl]),
 			emit([indent(6),{curr,tmpterm},nl]),

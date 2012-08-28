@@ -1001,15 +1001,22 @@ pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
     DecAnonymous =
 	case {Erules,Return_rest} of
 	    {ber_bin_v2,false} ->
-		io_lib:format("~s~s~s~n",
-			      ["element(1,?RT_BER:decode(Data",
-			       nif_parameter(),"))"]);
-	    {ber_bin_v2,true} ->
-		emit(["case catch ?RT_BER:decode(Data0",
+		emit(["case catch ?RT_BER:preparse(Data",
 		      nif_parameter(),") of",nl,
 		      "  {error,incomplete} ->",nl,
 		      "    {error,incomplete};",nl,
-		      "  {Data,Rest} ->",nl]),
+		      "  ok ->",nl]),
+		      io_lib:format("~s~s~s~n",
+			      ["element(1,?RT_BER:decode(Data",
+			       nif_parameter(),"))"]);
+	    {ber_bin_v2,true} ->
+		emit(["case catch ?RT_BER:preparse(Data0",
+		      nif_parameter(),") of",nl,
+		      "  {error,incomplete} ->",nl,
+		      "    {error,incomplete};",nl,
+		      "  ok ->",nl,
+		      "    {Data,Rest} = ?RT_BER:decode(Data0",
+		      nif_parameter(),"),",nl]),
 		"Data";
 	    _ ->
 		"Data"
@@ -1023,8 +1030,6 @@ pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
 	      end,
 	    
     emit(["case catch decode_disp(Type,",DecWrap,") of",nl,
-	  "  {error,incomplete} ->",nl,
-	  "    {error,incomplete};",nl,
 	  "  {'EXIT',{error,Reason}} ->",nl,
 	  "    {error,Reason};",nl,
 	  "  {'EXIT',Reason} ->",nl,
@@ -1033,23 +1038,30 @@ pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
     case {Erules,Return_rest} of 
 	{ber_bin_v2,false} ->
 	    emit(["  Result ->",nl,
-		  "    {ok,Result}",nl]);
+		  "    {ok,Result}",nl,
+		  "end",nl]);
 	{ber_bin_v2,true} ->
 	    emit(["  Result ->",nl,
 		  "    {ok,Result,Rest}",nl,
 		  "end",nl]);
 	{per,false} ->
-	    emit(["  {X,_Rest} ->",nl,
+	    emit(["  {error,incomplete} ->",nl,
+		  "    {error,incomplete};",nl,
+		  "  {X,_Rest} ->",nl,
 		  "    {ok,if_binary2list(X)};",nl,
 		  "  {X,_Rest,_Len} ->",nl,
 		  "    {ok,if_binary2list(X)}",nl]);
 	{_,false} ->
-	    emit(["  {X,_Rest} ->",nl,
+	    emit(["  {error,incomplete} ->",nl,
+		  "    {error,incomplete};",nl,
+		  "  {X,_Rest} ->",nl,
 		  "    {ok,X};",nl,
 		  "  {X,_Rest,_Len} ->",nl,
 		  "    {ok,X}",nl]);
 	{per,true}  ->
-	    emit(["  {X,{_,Rest}} ->",nl,
+	    emit(["  {error,incomplete} ->",nl,
+		  "    {error,incomplete};",nl,
+		  "  {X,{_,Rest}} ->",nl,
 		  "    {ok,if_binary2list(X),Rest};",nl,
 		  "  {X,{_,Rest},_Len} ->",nl,
 		  "    {ok,if_binary2list(X),Rest};",nl,
@@ -1058,7 +1070,9 @@ pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
 		  "  {X,Rest,_Len} ->",nl,
 		  "    {ok,if_binary2list(X),Rest}",nl]);
 	{per_bin,true} ->
-	    emit(["  {X,{_,Rest}} ->",nl,
+	    emit(["  {error,incomplete} ->",nl,
+		  "    {error,incomplete};",nl,
+		  "  {X,{_,Rest}} ->",nl,
 		  "    {ok,X,Rest};",nl,
 		  "  {X,{_,Rest},_Len} ->",nl,
 		  "    {ok,X,Rest};",nl,
@@ -1067,7 +1081,9 @@ pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
 		  "  {X,Rest,_Len} ->",nl,
 		  "    {ok,X,Rest}",nl]);
 	{uper_bin,true} ->
-	    emit(["  {X,{_,Rest}} ->",nl,
+	    emit(["  {error,incomplete} ->",nl,
+		  "    {error,incomplete};",nl,
+		  "  {X,{_,Rest}} ->",nl,
 		  "    {ok,X,Rest};",nl,
 		  "  {X,{_,Rest},_Len} ->",nl,
 		  "    {ok,X,Rest};",nl,
@@ -1076,7 +1092,9 @@ pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
 		  "  {X,Rest,_Len} ->",nl,
 		  "    {ok,X,Rest}",nl]);
 	_ ->
-	    emit(["  {X,Rest} ->",nl,
+	    emit(["  {error,incomplete} ->",nl,
+		  "    {error,incomplete};",nl,
+		  "  {X,Rest} ->",nl,
 		  "    {ok,X,Rest};",nl,
 		  "  {X,Rest,_Len} ->",nl,
 		  "    {ok,X,Rest}",nl])

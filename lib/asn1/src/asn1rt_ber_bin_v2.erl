@@ -181,6 +181,7 @@ decode(B) ->
 decode(B, nif) ->
     case is_nif_loadable() of
 	true ->
+	    preparse(B);
 	    case asn1rt_nif:decode_ber_tlv(B) of
 		{error, Reason} -> handle_error(Reason, B);
 		Else -> Else
@@ -189,6 +190,7 @@ decode(B, nif) ->
 	    decode(B)
     end;
 decode(B,erlang) when is_binary(B) ->
+    preparse(B);
     decode_primitive(B);
 decode(Tlv,erlang) ->
     {Tlv,<<>>}.

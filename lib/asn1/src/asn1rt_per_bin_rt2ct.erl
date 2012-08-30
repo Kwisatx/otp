@@ -209,19 +209,17 @@ getoptionals2(Bytes,NumOpt) ->
 %% Bin = bitstring(),
 %% Rest = bitstring()
 getbits_as_binary(Num,Bytes) when is_bitstring(Bytes) ->
-    try
-        <<BS:Num/bitstring,Rest/bitstring>> = Bytes,
-        {BS,Rest}
-    catch
-        error:{badmatch,_} -> throw({error, incomplete})
+    case Bytes of
+    <<BS:Num/bitstring,Rest/bitstring>> ->
+        {BS,Rest};
+    _ -> throw({error, incomplete})
     end.
     
 getbits_as_list(Num,Bytes) when is_bitstring(Bytes) ->
-    try
-        <<BitStr:Num/bitstring,Rest/bitstring>> = Bytes,
-        {[ B || <<B:1>> <= BitStr],Rest}
-    catch
-        error:{badmatch,_} -> throw({error, incomplete})
+    case Bytes of
+    <<BitStr:Num/bitstring,Rest/bitstring>> ->
+        {[ B || <<B:1>> <= BitStr],Rest};
+    _ -> throw({error, incomplete})
     end.
 
 getbit(<<>>) ->
@@ -232,11 +230,10 @@ getbit(Buffer) ->
 
 
 getbits(Buffer,Num) when is_bitstring(Buffer) ->
-    try
-        <<Bs:Num,Rest/bitstring>> = Buffer,
-        {Bs,Rest}
-    catch
-        error:{badmatch,_} -> throw({error, incomplete})
+    case Buffer of
+    <<Bs:Num,Rest/bitstring>> ->
+        {Bs,Rest};
+    _ -> throw({error, incomplete})
     end.
 
 align(Bin) when is_binary(Bin) ->
@@ -251,38 +248,34 @@ align(BitStr) when is_bitstring(BitStr) ->
 %% Returns octets as an integer with bit significance as in buffer.
 
 getoctets(Buffer,Num) when is_binary(Buffer) ->
-    try
-        <<Val:Num/integer-unit:8,RestBin/binary>> = Buffer,
-        {Val,RestBin}
-    catch
-        error:{badmatch,_} -> throw({error, incomplete})
+    case Buffer of
+    <<Val:Num/integer-unit:8,RestBin/binary>> ->
+        {Val,RestBin};
+    _ -> throw({error, incomplete})
     end;
 getoctets(Buffer,Num) when is_bitstring(Buffer) ->
     AlignBits = bit_size(Buffer) rem 8,
-    try
-        <<_:AlignBits,Val:Num/integer-unit:8,RestBin/binary>> = Buffer,
-        {Val,RestBin}
-    catch
-        error:{badmatch,_} -> throw({error, incomplete})
+    case Buffer of
+    <<_:AlignBits,Val:Num/integer-unit:8,RestBin/binary>> ->
+        {Val,RestBin};
+    _ -> throw({error, incomplete})
     end.
 
 
 %% First align buffer, then pick the first Num octets.
 %% Returns octets as a binary
 getoctets_as_bin(Bin,Num) when is_binary(Bin) ->
-    try
-        <<Octets:Num/binary,RestBin/binary>> = Bin,
-        {Octets,RestBin}
-    catch
-        error:{badmatch,_} -> throw({error, incomplete})
+    case Bin of
+    <<Octets:Num/binary,RestBin/binary>> ->
+        {Octets,RestBin};
+    _ -> throw({error, incomplete})
     end;
 getoctets_as_bin(Bin,Num) when is_bitstring(Bin) ->
     AlignBits = bit_size(Bin) rem 8,
-    try
-        <<_:AlignBits,Val:Num/binary,RestBin/binary>> = Bin,
-        {Val,RestBin}
-    catch
-        error:{badmatch,_} -> throw({error, incomplete})
+    case Bin of
+    <<_:AlignBits,Val:Num/binary,RestBin/binary>> ->
+        {Val,RestBin};
+    _ -> throw({error, incomplete})
     end.
     
 
@@ -365,17 +358,16 @@ decode_fragmented_bits(<<0:1,0:7,Bin/binary>>,C,Acc) ->
 	    exit({error,{asn1,{illegal_value,C,BinBits}}})
     end;
 decode_fragmented_bits(<<0:1,Len:7,Bin/binary>>,C,Acc) ->
-    try
-        <<Value:Len/bitstring,Rest/bitstring>> = Bin,
+    case Bin of
+    <<Value:Len/bitstring,Rest/bitstring>> ->
         BinBits = erlang:list_to_bitstring([Value|Acc]),
         case C of
 	    Int when is_integer(Int),C == bit_size(BinBits) ->
 	        {BinBits,Rest};
 	    Int when is_integer(Int) ->
 	        exit({error,{asn1,{illegal_value,C,BinBits}}})
-    end
-    catch
-        error:{badmatch,_} -> throw({error, incomplete})
+        end;
+    _ -> throw({error, incomplete})
     end.
 
 

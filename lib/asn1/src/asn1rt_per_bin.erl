@@ -240,11 +240,10 @@ getbits_as_binary(Num,{0,Bin}) when Num > 16, is_bitstring(Bin) ->
     Used = Num rem 8,
     Pad = (8 - Used) rem 8,
 %    Nbytes = Num div 8,
-    try
-        <<Bits:Num,_:Pad,RestBin/binary>> = Bin,
-        {{Pad,<<Bits:Num,0:Pad>>},RestBin}
-    catch
-        error:{badmatch,_} -> throw({error, incomplete})
+    case Bin of
+    <<Bits:Num,_:Pad,RestBin/binary>> ->
+        {{Pad,<<Bits:Num,0:Pad>>},RestBin};
+    _ -> throw({error, incomplete})
     end;
 getbits_as_binary(Num,Buffer={_Used,_Bin}) -> % Unaligned buffer
     %% Num =< 16,
@@ -271,41 +270,37 @@ getbits_as_list(0, B, Acc) ->
 %% If first byte in buffer is full and at least one byte will be picked,
 %% then pick one byte.
 getbits_as_list(N,{0,Bin},Acc) when N >= 8, is_bitstring(Bin) ->
-    try
-        <<B7:1,B6:1,B5:1,B4:1,B3:1,B2:1,B1:1,B0:1,Rest/binary>> = Bin,
-        getbits_as_list(N-8,{0,Rest},[B0,B1,B2,B3,B4,B5,B6,B7|Acc])
-    catch
-        error:{badmatch,_} -> throw({error, incomplete})
+    case Bin of
+    <<B7:1,B6:1,B5:1,B4:1,B3:1,B2:1,B1:1,B0:1,Rest/binary>> ->
+        getbits_as_list(N-8,{0,Rest},[B0,B1,B2,B3,B4,B5,B6,B7|Acc]);
+    _ -> throw({error, incomplete})
     end;
 getbits_as_list(N,{Used,Bin},Acc) when N >= 4, Used =< 4, is_bitstring(Bin) ->
     NewUsed = Used + 4,
     Rem = 8 - NewUsed,
-    try
-        <<_:Used,B3:1,B2:1,B1:1,B0:1,_:Rem, Rest/binary>> = Bin,
+    case Bin of
+    <<_:Used,B3:1,B2:1,B1:1,B0:1,_:Rem, Rest/binary>> ->
         NewRest = case Rem of 0 -> Rest; _ -> Bin end,
-        getbits_as_list(N-4,{NewUsed rem 8,NewRest},[B0,B1,B2,B3|Acc])
-    catch
-        error:{badmatch,_} -> throw({error, incomplete})
+        getbits_as_list(N-4,{NewUsed rem 8,NewRest},[B0,B1,B2,B3|Acc]);
+    _ -> throw({error, incomplete})
     end;
 getbits_as_list(N,{Used,Bin},Acc) when N >= 2, Used =< 6, is_bitstring(Bin) ->
     NewUsed = Used + 2,
     Rem = 8 - NewUsed,
-    try
-        <<_:Used,B1:1,B0:1,_:Rem, Rest/binary>> = Bin,
+    case Bin of
+    <<_:Used,B1:1,B0:1,_:Rem, Rest/binary>> ->
         NewRest = case Rem of 0 -> Rest; _ -> Bin end,
-        getbits_as_list(N-2,{NewUsed rem 8,NewRest},[B0,B1|Acc])
-    catch
-        error:{badmatch,_} -> throw({error, incomplete})
+        getbits_as_list(N-2,{NewUsed rem 8,NewRest},[B0,B1|Acc]);
+    _ -> throw({error, incomplete})
     end;
 getbits_as_list(N,{Used,Bin},Acc) when Used =< 7, is_bitstring(Bin) ->
     NewUsed = Used + 1,
     Rem = 8 - NewUsed,
-    try
-        <<_:Used,B0:1,_:Rem, Rest/binary>> = Bin,
+    case Bin of
+    <<_:Used,B0:1,_:Rem, Rest/binary>> ->
         NewRest = case Rem of 0 -> Rest; _ -> Bin end,
-        getbits_as_list(N-1,{NewUsed rem 8,NewRest},[B0|Acc])
-    catch
-        error:{badmatch,_} -> throw({error, incomplete})
+        getbits_as_list(N-1,{NewUsed rem 8,NewRest},[B0|Acc]);
+    _ -> throw({error, incomplete})
     end.
 
 
@@ -315,22 +310,20 @@ getbit({0,Buffer = <<B:1,_:7,_/binary>>}) ->
     {B,{1,Buffer}};
 getbit({Used,Buffer}) when is_bitstring(Buffer)  ->
     Unused = (8 - Used) - 1,
-    try
-        <<_:Used,B:1,_:Unused,_/binary>> = Buffer,
-        {B,{Used+1,Buffer}}
-    catch
-        error:{badmatch,_} -> throw({error, incomplete})
+    case Buffer of
+    <<_:Used,B:1,_:Unused,_/binary>> ->
+        {B,{Used+1,Buffer}};
+    _ -> throw({error, incomplete})
     end;
 getbit(Buffer) when is_binary(Buffer) ->
     getbit({0,Buffer}).
 
 
 getbits({0,Buffer},Num) when (Num rem 8) == 0, is_bitstring(Buffer) ->
-    try
-        <<Bits:Num,Rest/binary>> = Buffer,
-        {Bits,{0,Rest}}
-    catch
-        error:{badmatch,_} -> throw({error, incomplete})
+    case Buffer of
+    <<Bits:Num,Rest/binary>> ->
+        {Bits,{0,Rest}};
+    _ -> throw({error, incomplete})
     end;
 getbits({Used,Bin},Num) when is_bitstring(Bin) ->
     NumPlusUsed = Num + Used,
@@ -338,20 +331,18 @@ getbits({Used,Bin},Num) when is_bitstring(Bin) ->
     Unused = (8-NewUsed) rem 8,
     case Unused of
 	0 ->
-	    try
-	        <<_:Used,Bits:Num,Rest/binary>> = Bin,
-	        {Bits,{0,Rest}}
-	    catch
-	        error:{badmatch,_} -> throw({error, incomplete})
+	    case Bin of
+	    <<_:Used,Bits:Num,Rest/binary>> ->
+	        {Bits,{0,Rest}};
+	    _ -> throw({error, incomplete})
 	    end;
 	_ ->
 	    Bytes = NumPlusUsed div 8,
-	    try
-	        <<_:Used,Bits:Num,_UBits:Unused,_/binary>> = Bin,
+	    case Bin of
+	    <<_:Used,Bits:Num,_UBits:Unused,_/binary>> ->
 	        <<_:Bytes/binary,Rest/binary>> = Bin,
-	        {Bits,{NewUsed,Rest}}
-	    catch
-	        error:{badmatch,_} -> throw({error, incomplete})
+	        {Bits,{NewUsed,Rest}};
+	    _ -> throw({error, incomplete})
 	    end
     end;
 getbits(Bin,Num) when is_binary(Bin) ->
@@ -380,11 +371,10 @@ align(Bytes) ->
 %% First align buffer, then pick the first Num octets.
 %% Returns octets as an integer with bit significance as in buffer.
 getoctets({0,Buffer},Num) when is_bitstring(Buffer) ->
-    try
-        <<Val:Num/integer-unit:8,RestBin/binary>> = Buffer,
-        {Val,{0,RestBin}}
-    catch
-        error:{badmatch,_} -> throw({error, incomplete})
+    case Buffer of
+    <<Val:Num/integer-unit:8,RestBin/binary>> ->
+        {Val,{0,RestBin}};
+    _ -> throw({error, incomplete})
     end;
 getoctets({U,<<_Padding,Rest/binary>>},Num) when U /= 0 ->
     getoctets({0,Rest},Num);
@@ -414,18 +404,16 @@ getoctets(Buffer,Num) when is_binary(Buffer) ->
 %% First align buffer, then pick the first Num octets.
 %% Returns octets as a binary
 getoctets_as_bin({0,Bin},Num) when is_bitstring(Bin) ->
-    try
-        <<Octets:Num/binary,RestBin/binary>> = Bin,
-        {Octets,{0,RestBin}}
-    catch
-        error:{badmatch,_} -> throw({error, incomplete})
+    case Bin of
+    <<Octets:Num/binary,RestBin/binary>> ->
+        {Octets,{0,RestBin}};
+    _ -> throw({error, incomplete})
     end;
 getoctets_as_bin({_U,Bin},Num) when is_bitstring(Bin) ->
-    try
-        <<_Padding,Octets:Num/binary,RestBin/binary>> = Bin,
-        {Octets,{0,RestBin}}
-    catch
-        error:{badmatch,_} -> throw({error, incomplete})
+    case Bin of
+    <<_Padding,Octets:Num/binary,RestBin/binary>> ->
+        {Octets,{0,RestBin}};
+    _ -> throw({error, incomplete})
     end;
 getoctets_as_bin(Bin,Num) when is_binary(Bin) ->
     getoctets_as_bin({0,Bin},Num).
@@ -508,21 +496,19 @@ decode_fragmented_bits(<<0:1,Len:7,Bin/binary>>,C,Acc) ->
     Result = {BinBits,{Used,_Rest}} =
 	case (Len rem 8) of
 	    0 ->
-		try
-			<<Value:Len/binary-unit:1,Bin2/binary>> = Bin,
-		    {list_to_binary(lists:reverse([Value|Acc])),{0,Bin2}}
-		catch
-			error:{badmatch,_} -> throw({error, incomplete})
+		case Bin of
+		<<Value:Len/binary-unit:1,Bin2/binary>> ->
+		    {list_to_binary(lists:reverse([Value|Acc])),{0,Bin2}};
+		_ -> throw({error, incomplete})
 		end;
 	    Rem ->
 		Bytes = Len div 8,
 		U = 8 - Rem,
-		try
-			<<Value:Bytes/binary-unit:8,Bits1:Rem,Bits2:U,Bin2/binary>> = Bin,
+		case Bin of
+		<<Value:Bytes/binary-unit:8,Bits1:Rem,Bits2:U,Bin2/binary>> ->
 			{list_to_binary(lists:reverse([Bits1 bsl U,Value|Acc])),
-			 {Rem,<<Bits2,Bin2/binary>>}}
-		catch
-			error:{badmatch,_} -> throw({error, incomplete})
+			 {Rem,<<Bits2,Bin2/binary>>}};
+		_ -> throw({error, incomplete})
 		end
 	end,
     case C of
@@ -550,17 +536,16 @@ decode_fragmented_octets(<<0:1,0:7,Bin/binary>>,C,Acc) ->
 	    exit({error,{asn1,{illegal_value,C,Octets}}})
     end;
 decode_fragmented_octets(<<0:1,Len:7,Bin/binary>>,C,Acc) ->
-    try
-        <<Value:Len/binary-unit:8,Bin2/binary>> = Bin,
+    case Bin of
+    <<Value:Len/binary-unit:8,Bin2/binary>> ->
         BinOctets = list_to_binary(lists:reverse([Value|Acc])),
         case C of
 	    Int when is_integer(Int),size(BinOctets) == Int ->
 	        {BinOctets,Bin2};
 	    Int when is_integer(Int) ->
 	        exit({error,{asn1,{illegal_value,C,BinOctets}}})
-        end
-    catch
-        error:{badmatch,_} -> throw({error, incomplete})
+        end;
+    _ -> throw({error, incomplete})
     end;
 decode_fragmented_octets(<<>>,_,_) ->
     throw({error,incomplete}).

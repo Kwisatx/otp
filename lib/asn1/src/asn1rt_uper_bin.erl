@@ -177,19 +177,17 @@ getoptionals2(Bytes,NumOpt) ->
 %% BinBits = binary(),
 %% RestBytes = tuple()
 getbits_as_binary(Num,Bytes) when is_bitstring(Bytes) ->
-    try
-        <<BS:Num/bitstring,Rest/bitstring>> = Bytes,
-        {BS,Rest}
-    catch
-        error:{badmatch,_} -> throw({error, incomplete})
+    case Bytes of
+    <<BS:Num/bitstring,Rest/bitstring>> ->
+        {BS,Rest};
+    _ -> throw({error, incomplete})
     end.
 
 getbits_as_list(Num,Bytes) when is_bitstring(Bytes) ->
-    try
-        <<BitStr:Num/bitstring,Rest/bitstring>> = Bytes,
-        {[ B || <<B:1>> <= BitStr],Rest}
-    catch
-        error:{badmatch,_} -> throw({error, incomplete})
+    case Bytes of
+    <<BitStr:Num/bitstring,Rest/bitstring>> ->
+        {[ B || <<B:1>> <= BitStr],Rest};
+    _ -> throw({error, incomplete})
     end.
 
 getbit(<<>>) ->
@@ -201,32 +199,29 @@ getbit(Buffer) ->
 
 
 getbits(Buffer,Num) when is_bitstring(Buffer) ->
-    try
-        <<Bs:Num,Rest/bitstring>> = Buffer,
-        {Bs,Rest}
-    catch
-        error:{badmatch,_} -> throw({error, incomplete})
+    case Buffer of
+    <<Bs:Num,Rest/bitstring>> ->
+        {Bs,Rest};
+    _ -> throw({error, incomplete})
     end.
 
 
 %% Pick the first Num octets.
 %% Returns octets as an integer with bit significance as in buffer.
 getoctets(Buffer,Num) when is_bitstring(Buffer) ->
-    try
-        <<Val:Num/integer-unit:8,RestBitStr/bitstring>> = Buffer,
-        {Val,RestBitStr}
-    catch
-        error:{badmatch,_} -> throw({error, incomplete})
+    case Buffer of
+    <<Val:Num/integer-unit:8,RestBitStr/bitstring>> ->
+        {Val,RestBitStr};
+    _ -> throw({error, incomplete})
     end.
 
 %% Pick the first Num octets.
 %% Returns octets as a binary
 getoctets_as_bin(Bin,Num) when is_bitstring(Bin) ->
-    try
-        <<Octets:Num/binary,RestBin/bitstring>> = Bin,
-        {Octets,RestBin}
-    catch
-        error:{badmatch,_} -> throw({error, incomplete})
+    case Bin of
+    <<Octets:Num/binary,RestBin/bitstring>> ->
+        {Octets,RestBin};
+    _ -> throw({error, incomplete})
     end.
 
 %% same as above but returns octets as a List
@@ -293,11 +288,10 @@ decode_fragmented_bits(<<>>,_C,[]) ->
 decode_fragmented_bits(<<3:2,Len:6,BitStr/bitstring>>,C,Acc) ->
 %%    {Value,Bin2} = split_binary(Bin, Len * ?'16K'),
     FragLen = (Len*?'16K') div 8,
-    try
-        <<Value:FragLen/binary,BitStr2/bitstring>> = BitStr,
-        decode_fragmented_bits(BitStr2,C,[Value|Acc])
-    catch
-        error:{badmatch,_} -> throw({error, incomplete})
+    case BitStr of
+    <<Value:FragLen/binary,BitStr2/bitstring>> ->
+        decode_fragmented_bits(BitStr2,C,[Value|Acc]);
+    _ -> throw({error, incomplete})
     end;
 decode_fragmented_bits(<<0:1,0:7,BitStr/bitstring>>,C,Acc) ->
     BinBits = list_to_binary(lists:reverse(Acc)),
@@ -308,8 +302,8 @@ decode_fragmented_bits(<<0:1,0:7,BitStr/bitstring>>,C,Acc) ->
 	    exit({error,{asn1,{illegal_value,C,BinBits}}})
     end;
 decode_fragmented_bits(<<0:1,Len:7,BitStr/bitstring>>,C,Acc) ->
-    try
-        <<Val:Len/bitstring,Rest/bitstring>> = BitStr,
+    case BitStr of
+    <<Val:Len/bitstring,Rest/bitstring>> ->
 %%    <<Value:Len/binary-unit:1,Bin2/binary>> = Bin,
         ResBitStr = list_to_bitstring(lists:reverse([Val|Acc])),
         case C of
@@ -317,9 +311,8 @@ decode_fragmented_bits(<<0:1,Len:7,BitStr/bitstring>>,C,Acc) ->
 	        {ResBitStr,Rest};
 	    Int when is_integer(Int) ->
 	        exit({error,{asn1,{illegal_value,C,ResBitStr}}})
-    end
-    catch
-        error:{badmatch,_} -> throw({error, incomplete})
+        end;
+    _ -> throw({error, incomplete})
     end.
 
 
@@ -330,11 +323,10 @@ decode_fragmented_octets(Bin,_C,[]) when bit_size(Bin) < 8->
     throw({error, incomplete});
 decode_fragmented_octets(<<3:2,Len:6,BitStr/bitstring>>,C,Acc) ->
     FragLen = Len * ?'16K',
-    try
-        <<Value:FragLen/binary,Rest/bitstring>> = BitStr,
-        decode_fragmented_octets(Rest,C,[Value|Acc])
-    catch
-        error:{badmatch,_} -> throw({error, incomplete})
+    case BitStr of
+    <<Value:FragLen/binary,Rest/bitstring>> ->
+        decode_fragmented_octets(Rest,C,[Value|Acc]);
+    _ -> throw({error, incomplete})
     end;
 decode_fragmented_octets(<<0:1,0:7,Bin/bitstring>>,C,Acc) ->
     Octets = list_to_binary(lists:reverse(Acc)),
@@ -345,17 +337,16 @@ decode_fragmented_octets(<<0:1,0:7,Bin/bitstring>>,C,Acc) ->
 	    exit({error,{asn1,{illegal_value,C,Octets}}})
     end;
 decode_fragmented_octets(<<0:1,Len:7,BitStr/bitstring>>,C,Acc) ->
-    try
-        <<Value:Len/binary-unit:8,BitStr2/binary>> = BitStr,
+    case BitStr of
+    <<Value:Len/binary-unit:8,BitStr2/binary>> ->
         BinOctets = list_to_binary(lists:reverse([Value|Acc])),
         case C of
 	    Int when is_integer(Int),size(BinOctets) == Int ->
 	        {BinOctets,BitStr2};
 	    Int when is_integer(Int) ->
 	        exit({error,{asn1,{illegal_value,C,BinOctets}}})
-    end
-    catch
-        error:{badmatch,_} -> throw({error, incomplete})
+        end;
+    _ -> throw({error, incomplete})
     end.
 
 
@@ -1617,12 +1608,11 @@ encode_real(Real) ->
 decode_real(Bytes) ->
     {Len,Bytes2} = decode_length(Bytes,undefined),
     true = is_bitstring(Bytes2),
-    try
-        <<Bytes3:Len/binary,Rest/bitstring>> = Bytes2,
+    case Bytes2 of
+    <<Bytes3:Len/binary,Rest/bitstring>> ->
         {RealVal,Rest,Len} = ?RT_COMMON:decode_real(Bytes3,Len),
-        {RealVal,Rest}
-    catch
-        error:{badmatch,_} -> throw({error, incomplete})
+        {RealVal,Rest};
+    _ -> throw({error, incomplete})
     end.
 
 

@@ -28,7 +28,7 @@
  -export([cindex/3, list_to_record/2]).
  -export([setext/1, fixoptionals/3, 
  	 fixextensions/2, 
- 	 getext/1, getextension/2, skipextensions/3, getbit/1, getchoice/3 ]).
+ 	 getext/1, getextension/2, skipextensions/3, getbit/1, getchoice/4 ]).
  -export([getoptionals2/2, set_choice/3, encode_integer/2, encode_integer/3  ]).
  -export([decode_integer/2, decode_integer/3, encode_small_number/1, encode_boolean/1, 
  	 decode_boolean/1, encode_length/2, decode_length/1, decode_length/2,
@@ -157,12 +157,12 @@ skipextensions(Bytes,Nr,ExtensionBitPattern) ->
     end.
 
 
-getchoice(Bytes,1,0) -> % only 1 alternative is not encoded
+getchoice(Bytes,1,0,_) -> % only 1 alternative is not encoded
     {0,Bytes};
-getchoice(Bytes,_,1) ->
+getchoice(Bytes,_,1,_) ->
     decode_small_number(Bytes);
-getchoice(Bytes,NumChoices,0) ->
-    decode_constrained_number(Bytes,{0,NumChoices-1},num_bits(NumChoices)).
+getchoice(Bytes,NumChoices,0,NumBits) ->
+    decode_constrained_number(Bytes,{0,NumChoices-1},NumBits).
 
 
 %%%%%%%%%%%%%%%

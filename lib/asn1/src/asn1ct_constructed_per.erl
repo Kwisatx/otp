@@ -1494,9 +1494,14 @@ gen_dec_choice(Erule,TopType,CompList,noext) ->
     gen_dec_choice1(Erule,TopType,CompList,noext).
 
 gen_dec_choice1(Erule,TopType,CompList,noext) ->
+    case Erule of
+        uper_bin ->
+             NumBits = "," ++ integer_to_list(num_bits(length(CompList)));
+        _ -> NumBits = ""
+    end,
     emit({"{Choice,",{curr,bytes},
 	  "} = ?RT_PER:getchoice(",{prev,bytes},",",
-	  length(CompList),", 0),",nl}),
+	  length(CompList),", 0"++NumBits++"),",nl}),
     emit({"{Cname,{Val,NewBytes}} = case Choice of",nl}),
     gen_dec_choice2(Erule,TopType,CompList,noext),
     emit({nl,"end,",nl}),
@@ -1508,9 +1513,14 @@ gen_dec_choice1(Erule,TopType,{RootList,ExtList,RootList2},Ext) ->
     NewList = RootList ++ RootList2 ++ ExtList,
     gen_dec_choice1(Erule,TopType, NewList, Ext);
 gen_dec_choice1(Erule,TopType,CompList,{ext,ExtPos,ExtNum}) ->
+    case Erule of
+        uper_bin ->
+             NumBits = "," ++ integer_to_list(num_bits(length(CompList)-ExtNum+1));
+        _ -> NumBits = ""
+    end,
     emit({"{Choice,",{curr,bytes},
 	  "} = ?RT_PER:getchoice(",{prev,bytes},",",
-	  length(CompList)-ExtNum,",Ext ),",nl}),
+	  length(CompList)-ExtNum,",Ext"++NumBits++"),",nl}),
     emit({"{Cname,{Val,NewBytes}} = case Choice + Ext*",ExtPos-1," of",nl}),
     gen_dec_choice2(Erule,TopType,CompList,{ext,ExtPos,ExtNum}),
     case Erule of
@@ -1687,3 +1697,13 @@ is_optimized(per_bin) ->
     lists:member(optimize,get(encoding_options));
 is_optimized(_Erule) ->
     false.
+
+%% unaligned helpers
+
+%% 10.5.6 NOTE: If "range" satisfies the inequality 2^m < "range" =<
+%% 2^(m+1) then the number of bits = m + 1
+
+num_bits(N) ->
+    num_bits(N,1,0).
+num_bits(N,T,B) when N=<T->B;
+num_bits(N,T,B) ->num_bits(N,T bsl 1, B+1).

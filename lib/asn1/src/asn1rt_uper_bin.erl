@@ -162,7 +162,7 @@ getchoice(Bytes,1,0) -> % only 1 alternative is not encoded
 getchoice(Bytes,_,1) ->
     decode_small_number(Bytes);
 getchoice(Bytes,NumChoices,0) ->
-    decode_constrained_number(Bytes,{0,NumChoices-1}).
+    decode_constrained_number(Bytes,{0,NumChoices-1},num_bits(NumChoices)).
 
 
 %%%%%%%%%%%%%%%
@@ -393,7 +393,7 @@ encode_integer1(C, Val) ->
 	%% positive with range
 	{Lb,Ub} when Val >= Lb,
 		     Ub >= Val ->
-	    encode_constrained_number(VR,Val);
+	    encode_constrained_number(VR,Val,num_bits(Ub-Lb+1));
 	_ ->
 	    exit({error,{asn1,{illegal_value,VR,Val}}})
     end.
@@ -435,8 +435,8 @@ decode_integer1(Buffer,C) ->
 	    decode_unconstrained_number(Buffer);
 	{Lb, 'MAX'} ->
 	    decode_semi_constrained_number(Buffer,Lb);
-	{_,_} ->
-	    decode_constrained_number(Buffer,VR)
+	{Lb,Ub} ->
+	    decode_constrained_number(Buffer,VR,num_bits(Ub-Lb+1))
     end.
 
 %% X.691:10.6 Encoding of a normally small non-negative whole number
@@ -486,20 +486,16 @@ decode_semi_constrained_number(Bytes,Lb) ->
     {V,Bytes3} = getoctets(Bytes2,Len),
     {V+Lb,Bytes3}.
 
-encode_constrained_number(Range,{Name,Val}) when is_atom(Name) ->
-    encode_constrained_number(Range,Val);
-encode_constrained_number({Lb,Ub},Val) when Val >= Lb, Ub >= Val -> 
-    Range = Ub - Lb + 1,
+encode_constrained_number(Range,{Name,Val},NumBits) when is_atom(Name) ->
+    encode_constrained_number(Range,Val,NumBits);
+encode_constrained_number({Lb,_Ub},Val,NumBits) when Val >= Lb, _Ub >= Val ->
     Val2 = Val - Lb,
-    NumBits = num_bits(Range),
     <<Val2:NumBits>>;
-encode_constrained_number(Range,Val) -> 
+encode_constrained_number(Range,Val,_) -> 
     exit({error,{asn1,{integer_range,Range,value,Val}}}).
 
 
-decode_constrained_number(Buffer,{Lb,Ub}) ->
-    Range = Ub - Lb + 1,
-    NumBits = num_bits(Range),
+decode_constrained_number(Buffer,{Lb,_Ub},NumBits) ->
     {Val,Remain} = getbits(Buffer,NumBits),
     {Val+Lb,Remain}.
 
@@ -603,13 +599,13 @@ encode_length(undefined,Len) -> % un-constrained
 encode_length({0,'MAX'},Len) ->
     encode_length(undefined,Len);
 encode_length(Vr={Lb,Ub},Len) when Ub =< 65535 ,Lb >= 0 -> % constrained
-    encode_constrained_number(Vr,Len);
+    encode_constrained_number(Vr,Len,num_bits(Ub-Lb+1));
 encode_length({Lb,_Ub},Len) when is_integer(Lb), Lb >= 0 -> % Ub > 65535
     encode_length(undefined,Len);
 encode_length({Vr={Lb,Ub},Ext},Len) 
   when Ub =< 65535 ,Lb >= 0, Len=<Ub, is_list(Ext) -> 
     %% constrained extensible
-    [<<0:1>>,encode_constrained_number(Vr,Len)];
+    [<<0:1>>,encode_constrained_number(Vr,Len,num_bits(Ub-Lb+1))];
 encode_length({{Lb,_Ub},Ext},Len) when is_list(Ext) ->
     [<<1:1>>,encode_semi_constrained_number(Lb,Len)];
 encode_length(SingleValue,_Len) when is_integer(SingleValue) ->
@@ -644,7 +640,7 @@ decode_length(<<3:2,_:14,_Rest/bitstring>>,undefined)  ->
     exit({error,{asn1,{decode_length,{nyi,above_16k}}}});
 
 decode_length(Buffer,{Lb,Ub}) when Ub =< 65535 ,Lb >= 0 -> % constrained
-    decode_constrained_number(Buffer,{Lb,Ub});
+    decode_constrained_number(Buffer,{Lb,Ub},num_bits(Ub-Lb+1));
 decode_length(Buffer,{Lb,_}) when is_integer(Lb), Lb >= 0 -> % Ub > 65535
     decode_length(Buffer,undefined);
 decode_length(Buffer,{VR={_Lb,_Ub},Ext}) when is_list(Ext) ->

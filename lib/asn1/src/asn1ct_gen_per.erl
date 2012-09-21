@@ -144,11 +144,17 @@ gen_encode_prim(Erules,D,DoTag,Value) when is_record(D,type) ->
     Constraint = D#type.constraint,
     case Erules of
         uper_bin ->
-             case get_constraint(Constraint,'SizeConstraint') of
-                 {Lb,Ub} when is_integer(Lb),is_integer(Ub) ->
-                     NewCs = [{'NumBits', num_bits(Ub-Lb+1)}|Constraint];
-                 {{Lb,Ub},_Ext} when is_integer(Lb),is_integer(Ub) ->
-                     NewCs = [{'NumBits', num_bits(Ub-Lb+1)}|Constraint];
+            case get_constraint(Constraint,'SizeConstraint') of
+                {Lb,Ub} when is_integer(Lb),is_integer(Ub) ->
+                     NewCs = lists:keyreplace('SizeConstraint',1,Constraint,{'SizeConstraint',{Lb,Ub,num_bits(Ub-Lb+1)}});
+                {{Lb,Ub},Ext} when is_integer(Lb),is_integer(Ub) ->
+                     NewCs = lists:keyreplace('SizeConstraint',1,Constraint,{'SizeConstraint',{{Lb,Ub,num_bits(Ub-Lb+1)},Ext}});
+                {{Lb,Ub},Ext} ->
+                     NewCs = lists:keyreplace('SizeConstraint',1,Constraint,{'SizeConstraint',{{Lb,Ub,undefined},Ext}});
+                {Lb,Ub} ->
+                     NewCs = lists:keyreplace('SizeConstraint',1,Constraint,{'SizeConstraint',{Lb,Ub,undefined}});
+                Sv when is_list(Sv) ->
+                     NewCs = lists:keyreplace('SizeConstraint',1,Constraint,{'SizeConstraint',{Sv,num_bits(lists:max(Sv)-hd(Sv)+1)}});
                 _ -> NewCs = Constraint
              end;
         _ -> NewCs = Constraint
@@ -166,7 +172,7 @@ gen_encode_prim(Erules,D,DoTag,Value) when is_record(D,type) ->
 	    NewList = lists:concat([[{0,X}||{X,_} <- Nlist1],['EXT_MARK'],[{1,X}||{X,_} <- Nlist2]]),
 	    case Erules of
 		uper_bin ->
-		    NewC = [{'ValueRange',{0,length(Nlist1)-1}},{'NumBits',num_bits(length(Nlist1))}],
+		    NewC = [{'ValueRange',{0,length(Nlist1)-1,num_bits(length(Nlist1))}}],
 		    emit(["case ",Value," of",nl]);
 		_ ->
 		    NewC = [{'ValueRange',{0,length(Nlist1)-1}}],
@@ -180,7 +186,7 @@ gen_encode_prim(Erules,D,DoTag,Value) when is_record(D,type) ->
 	    NewList = [X||{X,_} <- NamedNumberList],
 	    case Erules of
 		uper_bin ->
-		    NewC = [{'ValueRange',{0,length(NewList)-1}},{'NumBits',num_bits(length(NewList))}],
+		    NewC = [{'ValueRange',{0,length(NewList)-1,num_bits(length(NewList))}}],
 		    emit(["case ",Value," of",nl]);
 		_ ->
 		    NewC = [{'ValueRange',{0,length(NewList)-1}}],
@@ -321,19 +327,13 @@ emit_enc_enumerated_case(_Erule, C, EnumName, Count) ->
 %% returns a value range that has the lower bound set to the lowest value 
 %% of all single values and lower bound values in C and the upper bound to
 %% the greatest value.
-effective_constraint(Erule,integer,[C={{_,Constraint},_}|_Rest]) -> % extension
+effective_constraint(Erule,integer,[C={{Tag,{Lb,Ub}},Ext}|_Rest]) -> % extension
     case Erule of
-        uper_bin ->
-             case Constraint of
-                 {Lb,Ub} when is_integer(Lb),is_integer(Ub) ->
-                     NewCs = [{'NumBits', num_bits(Ub-Lb+1)},C];
-                 {{Lb,Ub},_Ext} when is_integer(Lb),is_integer(Ub) ->
-                     NewCs = [{'NumBits', num_bits(Ub-Lb+1)},C];
-                 _ -> NewCs = [C]
-             end;
-         _ -> NewCs = [C]
-    end,
-    NewCs; %% [C|effective_constraint(integer,Rest)]; XXX what is possible ???
+        uper_bin when is_integer(Lb),is_integer(Ub) ->
+            [{{Tag,{Lb,Ub,num_bits(Ub-Lb+1)}},Ext}];
+        _ ->
+            [C] %% [C|effective_constraint(integer,Rest)]; XXX what is possible ???
+    end;
 effective_constraint(Erule,integer,C) ->
     SVs = get_constraints(C,'SingleValue'),
     SV = effective_constr(Erule,'SingleValue',SVs),
@@ -353,7 +353,7 @@ effective_constr(Erule,'SingleValue',List) ->
 	L when is_list(L) ->
 	    case {least_Lb(L),greatest_Ub(L)} of
 	        {Lb,Ub} when is_integer(Lb),is_integer(Ub),Erule==uper_bin ->
-	            [{'ValueRange',{Lb,Ub}},{'NumBits',num_bits(Ub-Lb+1)}];
+	            [{'ValueRange',{Lb,Ub,num_bits(Ub-Lb+1)}}];
 	        {Lb,Ub} ->
 	            [{'ValueRange',{Lb,Ub}}]
 	    end
@@ -364,7 +364,7 @@ effective_constr(Erule,'ValueRange',List) ->
     Lb = least_Lb(LBs),
     case {Lb,lists:max(UBs)} of
         {Lb,Ub} when is_integer(Lb),is_integer(Ub),Erule==uper_bin ->
-            [{'ValueRange',{Lb,Ub}},{'NumBits',num_bits(Ub-Lb+1)}];
+            [{'ValueRange',{Lb,Ub,num_bits(Ub-Lb+1)}}];
         {Lb,Ub} ->
             [{'ValueRange',{Lb,Ub}}]
     end.
@@ -382,14 +382,14 @@ greatest_common_range2(Erule,{_,Int},{Lb,Ub}) when is_integer(Int),
 						    Int < Lb ->
     case Ub of
         Ub when is_integer(Ub),Erule==uper_bin ->
-            [{'ValueRange',{Int,Ub}},{'NumBits',num_bits(Ub-Int+1)}];
+            [{'ValueRange',{Int,Ub,num_bits(Ub-Int+1)}}];
         Ub ->
             [{'ValueRange',{Int,Ub}}]
     end;
 greatest_common_range2(Erule,{_,Int},VR={Lb,Ub}) when is_integer(Int) ->
     case VR of
         {Lb,Ub} when is_integer(Lb),is_integer(Ub),Erule==uper_bin ->
-            [{'ValueRange',VR},{'NumBits',num_bits(Ub-Lb+1)}];
+            [{'ValueRange',VR,num_bits(Ub-Lb+1)}];
         {Lb,Ub} ->
             [{'ValueRange',VR}]
     end;
@@ -398,7 +398,7 @@ greatest_common_range2(Erule,{_,L},{Lb,Ub}) when is_list(L) ->
     Max = greatest_Ub([Ub|L]),
     case {Min,Max} of
         {Min,Max} when is_integer(Min),is_integer(Max),Erule==uper_bin ->
-            [{'ValueRange',{Min,Max}},{'NumBits',num_bits(Max-Min+1)}];
+            [{'ValueRange',{Min,Max,num_bits(Max-Min+1)}}];
         {Min,Max} ->
             [{'ValueRange',{Min,Max}}]
     end;
@@ -407,7 +407,7 @@ greatest_common_range2(Erule,{Lb1,Ub1},{Lb2,Ub2}) ->
     Max = greatest_Ub([Ub1,Ub2]),
     case {Min,Max} of
         {Min,Max} when is_integer(Min),is_integer(Max),Erule==uper_bin ->
-            [{'ValueRange',{Min,Max}},{'NumBits',num_bits(Max-Min+1)}];
+            [{'ValueRange',{Min,Max,num_bits(Max-Min+1)}}];
         {Min,Max} ->
             [{'ValueRange',{Min,Max}}]
     end.
@@ -1301,11 +1301,17 @@ gen_dec_prim(Erules,Att,BytesVar) ->
     Constraint = Att#type.constraint,
     case Erules of
         uper_bin ->
-             case get_constraint(Constraint,'SizeConstraint') of
-                 {Lb,Ub} when is_integer(Lb),is_integer(Ub) ->
-                     NewCs = [{'NumBits', num_bits(Ub-Lb+1)}|Constraint];
-                 {{Lb,Ub},_Ext} when is_integer(Lb),is_integer(Ub) ->
-                     NewCs = [{'NumBits', num_bits(Ub-Lb+1)}|Constraint];
+            case get_constraint(Constraint,'SizeConstraint') of
+                {Lb,Ub} when is_integer(Lb),is_integer(Ub) ->
+                     NewCs = lists:keyreplace('SizeConstraint',1,Constraint,{'SizeConstraint',{Lb,Ub,num_bits(Ub-Lb+1)}});
+                {{Lb,Ub},Ext} when is_integer(Lb),is_integer(Ub) ->
+                     NewCs = lists:keyreplace('SizeConstraint',1,Constraint,{'SizeConstraint',{{Lb,Ub,num_bits(Ub-Lb+1)},Ext}});
+                {{Lb,Ub},Ext} ->
+                     NewCs = lists:keyreplace('SizeConstraint',1,Constraint,{'SizeConstraint',{{Lb,Ub,undefined},Ext}});
+                {Lb,Ub} ->
+                     NewCs = lists:keyreplace('SizeConstraint',1,Constraint,{'SizeConstraint',{Lb,Ub,undefined}});
+                Sv when is_list(Sv) ->
+                     NewCs = lists:keyreplace('SizeConstraint',1,Constraint,{'SizeConstraint',{Sv,num_bits(lists:max(Sv)-hd(Sv)+1)}});
                 _ -> NewCs = Constraint
              end;
         _ -> NewCs = Constraint
@@ -1350,7 +1356,7 @@ gen_dec_prim(Erules,Att,BytesVar) ->
 		      list_to_tuple([X||{X,_} <- NamedNumberList2])},
 	    case Erules of
 	        uper_bin ->
-	             NewC = [{'ValueRange',{0,size(element(1,NewTup))-1}},{'NumBits',num_bits(size(element(1,NewTup)))}];
+	             NewC = [{'ValueRange',{0,size(element(1,NewTup))-1,num_bits(size(element(1,NewTup)))}}];
 	        _ -> NewC = [{'ValueRange',{0,size(element(1,NewTup))-1}}]
 	    end,
 	    emit({"?RT_PER:decode_enumerated(",BytesVar,",",
@@ -1360,7 +1366,7 @@ gen_dec_prim(Erules,Att,BytesVar) ->
 	    NewTup = list_to_tuple([X||{X,_} <- NamedNumberList]),
 	    case Erules of
 	        uper_bin ->
-	             NewC = [{'ValueRange',{0,size(NewTup)-1}},{'NumBits',num_bits(size(NewTup))}];
+	             NewC = [{'ValueRange',{0,size(NewTup)-1,num_bits(size(NewTup))}}];
 	        _ -> NewC = [{'ValueRange',{0,size(NewTup)-1}}]
 	    end,
 	    emit({"?RT_PER:decode_enumerated(",BytesVar,",",

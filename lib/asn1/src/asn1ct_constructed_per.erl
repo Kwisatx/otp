@@ -501,18 +501,22 @@ gen_encode_length(Erule,SizeConstraint,_) ->
         uper_bin ->
             case SizeConstraint of
                 {Lb,Ub} when is_integer(Lb),is_integer(Ub) ->
-                     NumBits = "," ++ integer_to_list(num_bits(Ub-Lb+1));
-                {{Lb,Ub},_Ext} when is_integer(Lb),is_integer(Ub) ->
-                     NumBits = "," ++ integer_to_list(num_bits(Ub-Lb+1));
-                undefined ->
-                     NumBits = "";
-                _ -> NumBits = ",undefined"
+                     NewC = {Lb,Ub,num_bits(Ub-Lb+1)};
+                {{Lb,Ub},Ext} when is_integer(Lb),is_integer(Ub) ->
+                     NewC = {{Lb,Ub,num_bits(Ub-Lb+1)},Ext};
+                {{Lb,Ub},Ext} ->
+                     NewC = {{Lb,Ub,undefined},Ext};
+                {Lb,Ub} ->
+                     NewC = {Lb,Ub,undefined};
+                Sv when is_list(Sv) ->
+                     NewC = {Sv,num_bits(lists:max(Sv)-hd(Sv)+1)};
+                _ -> NewC = SizeConstraint
              end;
         _ ->
-            NumBits = ""
+            NewC = SizeConstraint
     end,
     emit({nl,indent(3),"?RT_PER:encode_length(",
-	  {asis,SizeConstraint},NumBits++",length(Val)),",nl}).
+	  {asis,NewC},",length(Val)),",nl}).
 
 gen_decode_sof(Erules,Typename,SeqOrSetOf,D) when is_record(D,type) ->
     asn1ct_name:start(),
@@ -577,16 +581,22 @@ gen_decode_length(Erules,SizeConstraint,_) ->
     case Erules of
         uper_bin ->
              case SizeConstraint of
-                 {Lb, Ub} when is_integer(Lb),is_integer(Ub) ->
-                      NumBits = "," ++ integer_to_list(num_bits(Ub-Lb+1));
-                 {{Lb,Ub},_Ext} when is_integer(Lb),is_integer(Ub) ->
-                      NumBits = "," ++ integer_to_list(num_bits(Ub-Lb+1));
-                 _ -> NumBits = ""
+                 {Lb,Ub} when is_integer(Lb),is_integer(Ub) ->
+                      NewC = {Lb,Ub,num_bits(Ub-Lb+1)};
+                 {{Lb,Ub},Ext} when is_integer(Lb),is_integer(Ub) ->
+                      NewC = {{Lb,Ub,num_bits(Ub-Lb+1)},Ext};
+                 {{Lb,Ub},Ext} ->
+                      NewC = {{Lb,Ub,undefined},Ext};
+                 {Lb,Ub} ->
+                      NewC = {Lb,Ub,undefined};
+                 Sv when is_list(Sv) ->
+                      NewC = {Sv,num_bits(lists:max(Sv)-hd(Sv)+1)};
+                 _ -> NewC = SizeConstraint
              end;
-        _ -> NumBits = ""
+        _ -> NewC = SizeConstraint
     end,
     emit({nl,"{Num,Bytes1} = ?RT_PER:decode_length(Bytes,",
-	  {asis,SizeConstraint},NumBits++"),",nl}).
+	  {asis,NewC},"),",nl}).
 
 gen_encode_sof_components(Erule,Typename,SeqOrSetOf,Cont) ->
     {ObjFun,ObjFun_Var} =

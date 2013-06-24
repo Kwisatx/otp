@@ -804,8 +804,8 @@ pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
     emit([nl,nl]),
 
     Return_rest = proplists:get_bool(undec_rest, Options),
-    Data = case {Erules,Return_rest} of
-	       {ber,_} -> "Data0";
+    Data = case Erules of
+	       ber -> "Data0";
 	       _ -> "Data"
 	   end,
 

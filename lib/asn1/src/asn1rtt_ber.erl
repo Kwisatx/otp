@@ -118,9 +118,7 @@
 -define(T_UniversalString,  ?UNIVERSAL bor ?PRIMITIVE bor 28). %can be constructed
 -define(T_BMPString,        ?UNIVERSAL bor ?PRIMITIVE bor 30). %can be constructed
 
--define(check_split(Bin,Size), case Bin of <<A:Size/binary, B/binary>> -> {A,B}; _ when is_binary(Bin), is_integer(Size) -> throw({error, incomplete}); _ -> erlang:error(badarg) end).
--define(check_split(Bin,Size,Type1), case Bin of <<A:Size/Type1, B/binary>> -> {A,B}; _ when is_binary(Bin), is_integer(Size) -> throw({error, incomplete}); _ -> erlang:error(badarg) end).
--define(check_split(Bin,Size,Type1,A,B), case Bin of <<A:Size/Type1, B/binary>> -> {A,B}; _ when is_binary(Bin), is_integer(Size) -> throw({error, incomplete}); _ -> erlang:error(badarg) end).
+-include("asn1rtt.hrl").
 
 ber_encode([Tlv]) ->
     ber_encode(Tlv);
@@ -469,7 +467,6 @@ get_length_and_value(<<>>) ->
 get_length_and_value(Bin = <<0:1,Length:7,_T/binary>>) ->
     L = 1+Length,
     {LenVal,Rest} = ?check_split(Bin,L),
-%%    <<Len,Val:Length/binary,Rest/binary>> = Bin,
     {ok,{LenVal, Rest}};
 get_length_and_value(Bin = <<1:1,0:7,_T/binary>>) ->
     get_indefinite_length_and_value(Bin);

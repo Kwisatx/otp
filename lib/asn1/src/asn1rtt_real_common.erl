@@ -21,8 +21,7 @@
 -export([encode_real/1,decode_real/1,
 	 ber_encode_real/1]).
 
--define(check_split(Bin,Size), case Bin of <<A:Size/binary, B/binary>> -> {A,B}; _ when is_binary(Bin), is_integer(Size) -> throw({error, incomplete}); _ -> erlang:error(badarg) end).
--define(check_split(Bin,Size,Type1), case Bin of <<A:Size/Type1, B/binary>> -> {A,B}; _ when is_binary(Bin), is_integer(Size) -> throw({error, incomplete}); _ -> erlang:error(badarg) end).
+-include("asn1rtt.hrl").
 
 %%============================================================================
 %%
@@ -246,11 +245,8 @@ decode_real2(Buffer0, _C, Len, RemBytes1) ->
 		    0 -> {2, decode_integer2(1, Buffer2, RemBytes1), RemBytes1+1};
 		    1 -> {3, decode_integer2(2, Buffer2, RemBytes1), RemBytes1+2};
 		    2 -> {4, decode_integer2(3, Buffer2, RemBytes1), RemBytes1+3};
-		    3 ->
-			case Buffer2 of
-			    <<>> -> throw({error,incomplete});
-			    _ -> ok
-			end,
+		    3 when Buffer2 == <<>> -> throw({error,incomplete});
+			3 ->
 			<<ExpLen1,RestBuffer/binary>> = Buffer2,
 			{ ExpLen1 + 2,
 			  decode_integer2(ExpLen1, RestBuffer, RemBytes1),

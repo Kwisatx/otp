@@ -44,24 +44,25 @@
 	 open_type_to_binary/1,legacy_open_type_to_binary/1]).
 
 -define('16K',16384).
--define(check_bitstring_split(Bin,Size), case Bin of <<A:Size/bitstring, B/bitstring>> -> {A,B}; _ when is_bitstring(Bin), is_integer(Size) -> throw({error, incomplete}); _ -> erlang:error(badarg) end).
+
+-include("asn1rtt.hrl").
 
 decode_fragmented(SegSz0, Buf0, Unit) ->
     SegSz = SegSz0 * Unit * ?'16K',
-    {Res,Buf} = ?check_bitstring_split(Buf0,SegSz),
+    {Res,Buf} = ?check_bitstring_split(Buf0,SegSz,bitstring),
     decode_fragmented_1(Buf, Unit, Res).
 
 decode_fragmented_1(<<0:1,N:7,Buf0/bitstring>>, Unit, Res) ->
     Sz = N*Unit,
-    {S,Buf} = ?check_bitstring_split(Buf0,Sz),
+    {S,Buf} = ?check_bitstring_split(Buf0,Sz,bitstring),
     {<<Res/bitstring,S/bitstring>>,Buf};
 decode_fragmented_1(<<1:1,0:1,N:14,Buf0/bitstring>>, Unit, Res) ->
     Sz = N*Unit,
-    {S,Buf} = ?check_bitstring_split(Buf0,Sz),
+    {S,Buf} = ?check_bitstring_split(Buf0,Sz,bitstring),
     {<<Res/bitstring,S/bitstring>>,Buf};
 decode_fragmented_1(<<1:1,1:1,SegSz0:6,Buf0/bitstring>>, Unit, Res0) ->
     SegSz = SegSz0 * Unit * ?'16K',
-    {Frag,Buf} = ?check_bitstring_split(Buf0,SegSz),
+    {Frag,Buf} = ?check_bitstring_split(Buf0,SegSz,bitstring),
     Res = <<Res0/bitstring,Frag/bitstring>>,
     decode_fragmented_1(Buf, Unit, Res).
 

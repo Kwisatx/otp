@@ -219,11 +219,8 @@ decode_real(Buffer) ->
 
 decode_real2(Buffer, _C, 0, _RemBytes) ->
     {0,Buffer};
+decode_real2(<<>>, _C, _Len, _RemBytes1) -> throw({error,incomplete});
 decode_real2(Buffer0, _C, Len, RemBytes1) ->
-    case Buffer0 of
-	<<>> -> throw({error,incomplete});
-	_ -> ok
-    end,
     <<First, Buffer2/binary>> = Buffer0,
     if
 	First =:= 2#01000000 -> {'PLUS-INFINITY', Buffer2};

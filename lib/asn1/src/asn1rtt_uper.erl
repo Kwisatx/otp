@@ -52,9 +52,7 @@
 -define('32K',32768).
 -define('64K',65536).
 
--define(check_bitstring_split(Bin,Size), case Bin of <<A:Size, B/bitstring>> -> {A,B}; _ when is_bitstring(Bin), is_integer(Size) -> throw({error, incomplete}); _ -> erlang:error(badarg) end).
--define(check_bitstring_split(Bin,Size,Type1,Type2), case Bin of <<A:Size/Type1, B/Type2>> -> {A,B}; _ when is_bitstring(Bin), is_integer(Size) -> throw({error, incomplete}); _ -> erlang:error(badarg) end).
-
+-include("asn1rtt.hrl").
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% setext(true|false) ->  CompleteList

@@ -928,8 +928,8 @@ pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
 	  "end.",nl,nl]),
 
     Return_rest = lists:member(undec_rest,get(encoding_options)),
-    Data = case {Erules,Return_rest} of
-	       {ber,_} -> "Data0";
+    Data = case Erules of
+	       ber -> "Data0";
 	       _ -> "Data"
 	   end,
 

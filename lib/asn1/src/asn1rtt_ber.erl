@@ -390,14 +390,14 @@ return_value(Tag,Binary) ->
 %% decode_partial_incomplete and decode_selective (decode/2).
 
 skip_tag(<<>>) ->
-    throw({error,incomplete});
+    exit({error,incomplete});
 skip_tag(<<_:3,31:5,Rest/binary>>)->
     skip_long_tag(Rest);
 skip_tag(<<_:3,_Tag:5,Rest/binary>>) ->
     {ok,Rest}.
 
 skip_long_tag(<<>>) ->
-    throw({error,incomplete});
+    exit({error,incomplete});
 skip_long_tag(<<1:1,_:7,Rest/binary>>) ->
     skip_long_tag(Rest);
 skip_long_tag(<<0:1,_:7,Rest/binary>>) ->
@@ -445,7 +445,7 @@ get_indefinite_value(Binary,Acc) ->
     get_indefinite_value(RestBinary2,[LenVal,Tag|Acc]).
 
 get_tag(<<>>) ->
-    throw({error,incomplete});
+    exit({error,incomplete});
 get_tag(<<H:1/binary,Rest/binary>>) ->
     case H of
 	<<_:3,31:5>> ->
@@ -453,7 +453,7 @@ get_tag(<<H:1/binary,Rest/binary>>) ->
 	_ -> {ok,{H,Rest}}
     end.
 get_long_tag(<<>>,_) ->
-    throw({error,incomplete});
+    exit({error,incomplete});
 get_long_tag(<<H:1/binary,Rest/binary>>,Acc) ->
     case H of
 	<<0:1,_:7>> ->
@@ -463,7 +463,7 @@ get_long_tag(<<H:1/binary,Rest/binary>>,Acc) ->
     end.
 
 get_length_and_value(<<>>) ->
-    throw({error,incomplete});
+    exit({error,incomplete});
 get_length_and_value(Bin = <<0:1,Length:7,_T/binary>>) ->
     L = 1+Length,
     {LenVal,Rest} = ?check_split(Bin,L),
@@ -532,7 +532,7 @@ skip_ExtensionAdditions([{Tag,_}|Rest]=TLV, Tags) ->
 %%===============================================================================
 
 decode_tag_and_length(<<>>) ->
-    throw({error,incomplete});
+    exit({error,incomplete});
 decode_tag_and_length(<<Class:2, Form:1, TagNo:5, 0:1, Length:7, V:Length/binary, RestBuffer/binary>>) when TagNo < 31 ->
     {Form, (Class bsl 16) bor TagNo, V, RestBuffer};
 decode_tag_and_length(<<Class:2, 1:1, TagNo:5, 1:1, 0:7, T/binary>>) when TagNo < 31 ->
@@ -556,17 +556,17 @@ decode_tag_and_length(<<Class:2, Form:1, 31:5, Buffer/binary>>) ->
     {V,RestBuffer2} = ?check_split(RestBuffer,Length),
     {Form, (Class bsl 16) bor TagNo, V, RestBuffer2};
 decode_tag_and_length(<<_>>) ->
-    throw({error,incomplete});
+    exit({error,incomplete});
 decode_tag_and_length(<<_,_:1,L:7,Rest/binary>>) when byte_size(Rest) < L ->
-    throw({error,incomplete});
+    exit({error,incomplete});
 decode_tag_and_length(<<_,_:1,LL:7,Length:LL/binary,Rest/binary>>) when byte_size(Rest) < Length ->
-    throw({error,incomplete}).
+    exit({error,incomplete}).
 
 
 
 %% last partial tag
 decode_tag(<<>>,_) ->
-    throw({error,incomplete});
+    exit({error,incomplete});
 decode_tag(<<0:1,PartialTag:7, Buffer/binary>>, TagAck) ->
     TagNo = (TagAck bsl 7) bor PartialTag,
     {TagNo, Buffer};
@@ -726,7 +726,7 @@ decode_integer(Tlv, TagIn) ->
     decode_integer(Bin).
 
 decode_integer(<<>>) ->
-    throw({error,incomplete});
+    exit({error,incomplete});
 decode_integer(Bin) ->
     Len = byte_size(Bin),
     <<Int:Len/signed-unit:8>> = Bin,
@@ -1075,7 +1075,7 @@ decode_native_bit_string(Buffer, Tags) ->
     end.
 
 decode_named_bit_string(<<>>, _, _) ->
-    throw({error,incomplete});
+    exit({error,incomplete});
 decode_named_bit_string(Buffer, NamedNumberList, Tags) ->
     case match_and_collect(Buffer, Tags) of
 	<<0>> ->
@@ -1096,7 +1096,7 @@ decode_bitstring2(Len, Unused,
     [B7,B6,B5,B4,B3,B2,B1,B0|
      decode_bitstring2(Len - 1, Unused, Buffer)];
 decode_bitstring2(_, _Unused, <<>>) ->
-    throw({error,incomplete}).
+    exit({error,incomplete}).
 
 native_to_legacy_bit_string(Bits) ->
     [B || <<B:1>> <= Bits].
@@ -1410,13 +1410,13 @@ minimum_octets(Val, Acc) ->
 %%===========================================================================
 
 decode_length(<<>>) ->
-    throw({error,incomplete});
+    exit({error,incomplete});
 decode_length(<<1:1,0:7,T/binary>>) ->
     {indefinite,T};
 decode_length(<<0:1,Length:7,T/binary>>) ->
     {Length,T};
 decode_length(<<1:1,LL:7,Length:LL/unit:8,T/binary>>) ->
-    Length =< byte_size(T) orelse throw({error,incomplete}),
+    Length =< byte_size(T) orelse exit({error,incomplete}),
     {Length,T}.
 
 %% dynamicsort_SET_components(Arg) ->
@@ -1486,4 +1486,4 @@ collect_parts_bit([{?N_BIT_STRING,<<Unused,Bits/binary>>}|Rest], Acc, Uacc) ->
 collect_parts_bit([], Acc, Uacc) ->
     list_to_binary([Uacc|lists:reverse(Acc)]);
 collect_parts_bit([{?N_BIT_STRING,<<>>}|_Rest], _Acc, _Uacc) ->
-    throw({error,incomplete}).
+    exit({error,incomplete}).

@@ -45,7 +45,7 @@ align(BitStr) when is_bitstring(BitStr) ->
 decode_length(Buffer)  -> % un-constrained
     case align(Buffer) of
 	<<>> ->
-	    throw({error,incomplete});
+	    exit({error,incomplete});
 	<<0:1,Oct:7,Rest/binary>> ->
 	    {Oct,Rest};
 	<<2:2,Val:14,Rest/binary>> ->
@@ -54,7 +54,7 @@ decode_length(Buffer)  -> % un-constrained
 	    %% this case should be fixed
 	    exit({error,{asn1,{decode_length,{nyi,above_16k}}}});
 	<<1:1,_:7>> ->
-	    throw({error,incomplete})
+	    exit({error,incomplete})
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

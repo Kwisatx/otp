@@ -101,6 +101,7 @@ MODULES= \
 	testSSLspecs \
 	test_driver_load \
 	testSelectionTypes \
+	test_incomplete_packet \
 	test_undecoded_rest \
 	testTcapsystem \
 	testNBAPsystem \

@@ -21,6 +21,9 @@
 -export([encode_real/1,decode_real/1,
 	 ber_encode_real/1]).
 
+-define(check_split(Bin,Size), case Bin of <<A:Size/binary, B/binary>> -> {A,B}; _ when is_binary(Bin), is_integer(Size) -> throw({error, incomplete}); _ -> erlang:error(badarg) end).
+-define(check_split(Bin,Size,Type1), case Bin of <<A:Size/Type1, B/binary>> -> {A,B}; _ when is_binary(Bin), is_integer(Size) -> throw({error, incomplete}); _ -> erlang:error(badarg) end).
+
 %%============================================================================
 %%
 %% Real value, ITU_T X.690 Chapter 8.5
@@ -218,13 +221,18 @@ decode_real(Buffer) ->
 decode_real2(Buffer, _C, 0, _RemBytes) ->
     {0,Buffer};
 decode_real2(Buffer0, _C, Len, RemBytes1) ->
+    case Buffer0 of
+	<<>> -> throw({error,incomplete});
+	_ -> ok
+    end,
     <<First, Buffer2/binary>> = Buffer0,
     if
 	First =:= 2#01000000 -> {'PLUS-INFINITY', Buffer2};
 	First =:= 2#01000001 -> {'MINUS-INFINITY', Buffer2};
 	First =:= 1 orelse First =:= 2 orelse First =:= 3 ->
 	    %% charcter string encoding of base 10
-	    {NRx,Rest} = split_binary(Buffer2,Len-1),
+	    L = Len-1,
+	    {NRx,Rest} = ?check_split(Buffer2,L),
 	    {binary_to_list(NRx),Rest,Len};
 	true ->
 	    %% have some check here to verify only supported bases (2)
@@ -241,6 +249,10 @@ decode_real2(Buffer0, _C, Len, RemBytes1) ->
 		    1 -> {3, decode_integer2(2, Buffer2, RemBytes1), RemBytes1+2};
 		    2 -> {4, decode_integer2(3, Buffer2, RemBytes1), RemBytes1+3};
 		    3 ->
+			case Buffer2 of
+			    <<>> -> throw({error,incomplete});
+			    _ -> ok
+			end,
 			<<ExpLen1,RestBuffer/binary>> = Buffer2,
 			{ ExpLen1 + 2,
 			  decode_integer2(ExpLen1, RestBuffer, RemBytes1),
@@ -249,7 +261,8 @@ decode_real2(Buffer0, _C, Len, RemBytes1) ->
 	    %%	    io:format("FirstLen: ~w, Exp: ~w, Buffer3: ~w ~n",
 
 	    Length = Len - FirstLen,
-	    <<LongInt:Length/unit:8,RestBuff/binary>> = Buffer3,
+	    L = Length * 8,
+	    {LongInt,RestBuff} = ?check_split(Buffer3,L,integer),
 	    {{Mantissa, Buffer4}, RemBytes3} =
 		if Sign =:= 0 ->
 			%%			io:format("sign plus~n"),
@@ -281,12 +294,16 @@ real_mininum_octets(0, Acc) ->
 real_mininum_octets(Val, Acc) ->
     real_mininum_octets(Val bsr 8, [Val band 16#FF | Acc]).
 
+decode_integer2(_,<<>>,_) ->
+    throw({error,incomplete});
 %% decoding postitive integer values.
 decode_integer2(Len, <<0:1,_:7,_Bs/binary>> = Bin, RemovedBytes) ->
-    <<Int:Len/unit:8,Buffer2/binary>> = Bin,
+    L = Len*8,
+    {Int,Buffer2} = ?check_split(Bin,L,integer),
     {Int,Buffer2,RemovedBytes};
 %% decoding negative integer values.
 decode_integer2(Len, <<1:1,B2:7,Bs/binary>>, RemovedBytes)  ->
-    <<N:Len/unit:8,Buffer2/binary>> = <<B2,Bs/binary>>,
+    L = Len*8,
+    {N,Buffer2} = ?check_split(<<B2,Bs/binary>>,L,integer),
     Int = N - (1 bsl (8 * Len - 1)),
     {Int,Buffer2,RemovedBytes}.

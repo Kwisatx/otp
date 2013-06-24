@@ -929,7 +929,7 @@ pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
 
     Return_rest = lists:member(undec_rest,get(encoding_options)),
     Data = case {Erules,Return_rest} of
-	       {ber,true} -> "Data0";
+	       {ber,_} -> "Data0";
 	       _ -> "Data"
 	   end,
 
@@ -938,10 +938,25 @@ pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
 	case {Erules,Return_rest} of
 	    {ber,false} ->
 		asn1ct_func:need({ber,ber_decode_nif,1}),
-		"element(1, ber_decode_nif(Data))";
+		emit(["case catch ber_decode_nif(Data0) of",nl,
+		      "  {error,incomplete} ->",nl,
+		      "    {error,incomplete};",nl,
+		      "  {'EXIT',{error,Reason}} ->",nl,
+		      "    {error,Reason};",nl,
+		      "  {'EXIT',Reason} ->",nl,
+		      "    {error,{asn1,Reason}};",nl,
+		      "  {Data,_Rest} ->",nl]),
+		"Data";
 	    {ber,true} ->
 		asn1ct_func:need({ber,ber_decode_nif,1}),
-		emit(["{Data,Rest} = ber_decode_nif(Data0),",nl]),
+		emit(["case catch ber_decode_nif(Data0) of",nl,
+		      "  {error,incomplete} ->",nl,
+		      "    {error,incomplete};",nl,
+		      "  {'EXIT',{error,Reason}} ->",nl,
+		      "    {error,Reason};",nl,
+		      "  {'EXIT',Reason} ->",nl,
+		      "    {error,{asn1,Reason}};",nl,
+		      "  {Data,Rest} ->",nl]),
 		"Data";
 	    _ ->
 		"Data"
@@ -953,6 +968,8 @@ pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
 	      end,
 	    
     emit(["case catch decode_disp(Type,",DecWrap,") of",nl,
+	  "  {error,incomplete} ->",nl,
+	  "    {error,incomplete};",nl,
 	  "  {'EXIT',{error,Reason}} ->",nl,
 	  "    {error,Reason};",nl,
 	  "  {'EXIT',Reason} ->",nl,
@@ -960,10 +977,12 @@ pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
     case {Erules,Return_rest} of 
 	{ber,false} ->
 	    emit(["  Result ->",nl,
-		  "    {ok,Result}",nl]);
+		  "    {ok,Result}",nl,
+		  "end",nl]);
 	{ber,true} ->
 	    emit(["  Result ->",nl,
-		  "    {ok,Result,Rest}",nl]);
+		  "    {ok,Result,Rest}",nl,
+		  "end",nl]);
 	{_,false} ->
 	    emit(["  {X,_Rest} ->",nl,
 		  "    {ok,X};",nl,

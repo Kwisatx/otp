@@ -44,6 +44,11 @@
 -define('32K',32768).
 -define('64K',65536).
 
+-define(check_split(Bin,Size), case Bin of <<A:Size/binary, B/binary>> -> {A,B}; _ when is_binary(Bin), is_integer(Size) -> throw({error, incomplete}); _ -> erlang:error(badarg) end).
+-define(check_split(Bin,Size,Type1,Type2), case Bin of <<A:Size/Type1, B/Type2>> -> {A,B}; _ when is_binary(Bin), is_integer(Size) -> throw({error, incomplete}); _ -> erlang:error(badarg) end).
+-define(check_bitstring_split(Bin,Size), case Bin of <<A:Size, B/bitstring>> -> {A,B}; _ when is_bitstring(Bin), is_integer(Size) -> throw({error, incomplete}); _ -> erlang:error(badarg) end).
+-define(check_bitstring_split(Bin,Size,AlignBits,Type1), case Bin of <<_:AlignBits,A:Size/Type1,B/binary>> -> {A,B}; _ when is_bitstring(Bin), is_integer(Size), is_integer(AlignBits) -> throw({error, incomplete}); _ -> erlang:error(badarg) end).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% setext(true|false) ->  CompleteList
 %%
@@ -361,13 +366,17 @@ encode_small_length(Len) ->
 
 decode_length(Buffer)  -> % un-constrained
     case align(Buffer) of
+	<<>> ->
+	    throw({error,incomplete});
 	<<0:1,Oct:7,Rest/binary>> ->
 	    {Oct,Rest};
 	<<2:2,Val:14,Rest/binary>> ->
 	    {Val,Rest};
 	<<3:2,_Val:14,_Rest/binary>> ->
 	    %% this case should be fixed
-	    exit({error,{asn1,{decode_length,{nyi,above_16k}}}})
+	    exit({error,{asn1,{decode_length,{nyi,above_16k}}}});
+	<<1:1,_:7>> ->
+	    throw({error,incomplete})
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

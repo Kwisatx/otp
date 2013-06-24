@@ -33,7 +33,7 @@ run([]) ->
     {ok,{'S3ext',17}} = asn1_wrapper:decode('Constructed','S3ext',Bytes),
 
     %% Truncated tag.
-    {error,{asn1,{invalid_tag,_}}} =
+    {error,incomplete} =
 	(catch 'Constructed':decode('I', <<31,255,255>>)),
 
     %% Overlong tag.
@@ -41,14 +41,14 @@ run([]) ->
 	(catch 'Constructed':decode('I', <<31,255,255,255,127>>)),
 
     %% Invalid length.
-    {error,{asn1,{invalid_length,_}}} =
+    {error,incomplete} =
 	(catch 'Constructed':decode('I', <<8,255>>)),
 
     %% Other errors.
-    {error,{asn1,{invalid_value,_}}} =
+    {error,incomplete} =
 	(catch 'Constructed':decode('I', <<>>)),
 
-    {error,{asn1,{invalid_value,_}}} =
+    {error,incomplete} =
 	(catch 'Constructed':decode('I', <<8,7>>)),
 
     ok.

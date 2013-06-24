@@ -117,6 +117,10 @@
 -define(T_UniversalString,  ?UNIVERSAL bor ?PRIMITIVE bor 28). %can be constructed
 -define(T_BMPString,        ?UNIVERSAL bor ?PRIMITIVE bor 30). %can be constructed
 
+-define(check_split(Bin,Size), case Bin of <<A:Size/binary, B/binary>> -> {A,B}; _ when is_binary(Bin), is_integer(Size) -> throw({error, incomplete}); _ -> erlang:error(badarg) end).
+-define(check_split(Bin,Size,Type1), case Bin of <<A:Size/Type1, B/binary>> -> {A,B}; _ when is_binary(Bin), is_integer(Size) -> throw({error, incomplete}); _ -> erlang:error(badarg) end).
+-define(check_split(Bin,Size,Type1,A,B), case Bin of <<A:Size/Type1, B/binary>> -> {A,B}; _ when is_binary(Bin), is_integer(Size) -> throw({error, incomplete}); _ -> erlang:error(badarg) end).
+
 ber_encode([Tlv]) ->
     ber_encode(Tlv);
 ber_encode(Tlv) when is_binary(Tlv) ->
@@ -386,11 +390,15 @@ return_value(Tag,Binary) ->
 %% skip_tag and skip_length_and_value are rutines used both by
 %% decode_partial_incomplete and decode_selective (decode/2).
 
+skip_tag(<<>>) ->
+    throw({error,incomplete});
 skip_tag(<<_:3,31:5,Rest/binary>>)->
     skip_long_tag(Rest);
 skip_tag(<<_:3,_Tag:5,Rest/binary>>) ->
     {ok,Rest}.
 
+skip_long_tag(<<>>) ->
+    throw({error,incomplete});
 skip_long_tag(<<1:1,_:7,Rest/binary>>) ->
     skip_long_tag(Rest);
 skip_long_tag(<<0:1,_:7,Rest/binary>>) ->
@@ -409,7 +417,8 @@ skip_length_and_value(Binary) ->
 	{indefinite,RestBinary} ->
 	    skip_indefinite_value(RestBinary);
 	{Length,RestBinary} ->
-	    <<_:Length/unit:8,Rest/binary>> = RestBinary,
+	    L = Length * 8,
+	    {_,Rest} = ?check_split(RestBinary,L,integer),
 	    {ok,Rest}
     end.
 
@@ -425,7 +434,7 @@ get_value(Binary) ->
 	{indefinite,RestBinary} ->
 	    get_indefinite_value(RestBinary,[]);
 	{Length,RestBinary} ->
-	    <<Value:Length/binary,_Rest/binary>> = RestBinary,
+	    {Value,_Rest} = ?check_split(RestBinary,Length),
 	    {ok,Value}
     end.
 
@@ -436,12 +445,16 @@ get_indefinite_value(Binary,Acc) ->
     {ok,{LenVal,RestBinary2}} = get_length_and_value(RestBinary),
     get_indefinite_value(RestBinary2,[LenVal,Tag|Acc]).
 
+get_tag(<<>>) ->
+    throw({error,incomplete});
 get_tag(<<H:1/binary,Rest/binary>>) ->
     case H of
 	<<_:3,31:5>> ->
 	    get_long_tag(Rest,[H]);
 	_ -> {ok,{H,Rest}}
     end.
+get_long_tag(<<>>,_) ->
+    throw({error,incomplete});
 get_long_tag(<<H:1/binary,Rest/binary>>,Acc) ->
     case H of
 	<<0:1,_:7>> ->
@@ -450,14 +463,19 @@ get_long_tag(<<H:1/binary,Rest/binary>>,Acc) ->
 	    get_long_tag(Rest,[H|Acc])
     end.
 
+get_length_and_value(<<>>) ->
+    throw({error,incomplete});
 get_length_and_value(Bin = <<0:1,Length:7,_T/binary>>) ->
-    <<Len,Val:Length/binary,Rest/binary>> = Bin,
-    {ok,{<<Len,Val/binary>>, Rest}};
+    L = 1+Length,
+    {LenVal,Rest} = ?check_split(Bin,L),
+%%    <<Len,Val:Length/binary,Rest/binary>> = Bin,
+    {ok,{LenVal, Rest}};
 get_length_and_value(Bin = <<1:1,0:7,_T/binary>>) ->
     get_indefinite_length_and_value(Bin);
 get_length_and_value(<<1:1,LL:7,T/binary>>) ->
-    <<Length:LL/unit:8,Rest/binary>> = T,
-    <<Value:Length/binary,Rest2/binary>> = Rest,
+    L = LL * 8,
+    {Length,Rest} = ?check_split(T,L,integer,Length_,Rest_),
+    {Value,Rest2} = ?check_split(Rest,Length,binary,Value_,Rest2_),
     {ok,{<<1:1,LL:7,Length:LL/unit:8,Value/binary>>,Rest2}}.
 
 get_indefinite_length_and_value(<<H,T/binary>>) ->
@@ -515,6 +533,8 @@ skip_ExtensionAdditions([{Tag,_}|Rest]=TLV, Tags) ->
 %% decode_tag(OctetListBuffer) -> {{Form, (Class bsl 16)+ TagNo}, RestOfBuffer, RemovedBytes}
 %%===============================================================================
 
+decode_tag_and_length(<<>>) ->
+    throw({error,incomplete});
 decode_tag_and_length(<<Class:2, Form:1, TagNo:5, 0:1, Length:7, V:Length/binary, RestBuffer/binary>>) when TagNo < 31 ->
     {Form, (Class bsl 16) bor TagNo, V, RestBuffer};
 decode_tag_and_length(<<Class:2, 1:1, TagNo:5, 1:1, 0:7, T/binary>>) when TagNo < 31 ->
@@ -535,12 +555,20 @@ decode_tag_and_length(<<Class:2, Form:1, 31:5, 1:1, TagPart1:7, 0:1, TagPartLast
 decode_tag_and_length(<<Class:2, Form:1, 31:5, Buffer/binary>>) ->
     {TagNo, Buffer1} = decode_tag(Buffer, 0),
     {Length, RestBuffer} = decode_length(Buffer1),
-    << V:Length/binary, RestBuffer2/binary>> = RestBuffer,
-    {Form, (Class bsl 16) bor TagNo, V, RestBuffer2}.
+    {V,RestBuffer2} = ?check_split(RestBuffer,Length),
+    {Form, (Class bsl 16) bor TagNo, V, RestBuffer2};
+decode_tag_and_length(<<_>>) ->
+    throw({error,incomplete});
+decode_tag_and_length(<<_,_:1,L:7,Rest/binary>>) when byte_size(Rest) < L ->
+    throw({error,incomplete});
+decode_tag_and_length(<<_,_:1,LL:7,Length:LL/binary,Rest/binary>>) when byte_size(Rest) < Length ->
+    throw({error,incomplete}).
 
 
 
 %% last partial tag
+decode_tag(<<>>,_) ->
+    throw({error,incomplete});
 decode_tag(<<0:1,PartialTag:7, Buffer/binary>>, TagAck) ->
     TagNo = (TagAck bsl 7) bor PartialTag,
     {TagNo, Buffer};
@@ -718,6 +746,8 @@ decode_integer(Tlv, Range, TagIn) ->
     Int = decode_integer(V),
     range_check_integer(Int, Range).
 
+decode_integer(<<>>) ->
+    throw({error,incomplete});
 decode_integer(Bin) ->
     Len = byte_size(Bin),
     <<Int:Len/signed-unit:8>> = Bin,
@@ -1076,6 +1106,8 @@ decode_native_bit_string(Buffer, Range, Tags) ->
 	    check_restricted_string(Val, Size, Range)
     end.
 
+decode_named_bit_string(<<>>, _, _) ->
+    throw({error,incomplete});
 decode_named_bit_string(Buffer, NamedNumberList, Tags) ->
     case match_and_collect(Buffer, Tags) of
 	<<0>> ->
@@ -1094,7 +1126,9 @@ decode_bitstring2(1, Unused,
 decode_bitstring2(Len, Unused,
 		  <<B7:1,B6:1,B5:1,B4:1,B3:1,B2:1,B1:1,B0:1,Buffer/binary>>) ->
     [B7,B6,B5,B4,B3,B2,B1,B0|
-     decode_bitstring2(Len - 1, Unused, Buffer)].
+     decode_bitstring2(Len - 1, Unused, Buffer)];
+decode_bitstring2(_, _Unused, <<>>) ->
+    throw({error,incomplete}).
 
 %%----------------------------------------
 %% Decode the bitlist to names
@@ -1412,11 +1446,14 @@ minimum_octets(Val, Acc) ->
 %%                             {{Length, RestOctetsL}, NoRemovedBytes}
 %%===========================================================================
 
+decode_length(<<>>) ->
+    throw({error,incomplete});
 decode_length(<<1:1,0:7,T/binary>>) ->
     {indefinite,T};
 decode_length(<<0:1,Length:7,T/binary>>) ->
     {Length,T};
 decode_length(<<1:1,LL:7,Length:LL/unit:8,T/binary>>) ->
+    {_,_} = ?check_split(T,Length),
     {Length,T}.
 
 %% dynamicsort_SET_components(Arg) ->
@@ -1484,4 +1521,6 @@ collect_parts([], Acc) ->
 collect_parts_bit([{?N_BIT_STRING,<<Unused,Bits/binary>>}|Rest], Acc, Uacc) ->
     collect_parts_bit(Rest, [Bits|Acc], Unused+Uacc);
 collect_parts_bit([], Acc, Uacc) ->
-    list_to_binary([Uacc|lists:reverse(Acc)]).
+    list_to_binary([Uacc|lists:reverse(Acc)]);
+collect_parts_bit([{?N_BIT_STRING,<<>>}|_Rest], _Acc, _Uacc) ->
+    throw({error,incomplete}).

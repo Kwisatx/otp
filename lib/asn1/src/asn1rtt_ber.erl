@@ -1416,7 +1416,7 @@ decode_length(<<1:1,0:7,T/binary>>) ->
 decode_length(<<0:1,Length:7,T/binary>>) ->
     {Length,T};
 decode_length(<<1:1,LL:7,Length:LL/unit:8,T/binary>>) ->
-    {_,_} = ?check_split(T,Length),
+    Length =< byte_size(T) orelse throw({error,incomplete}),
     {Length,T}.
 
 %% dynamicsort_SET_components(Arg) ->

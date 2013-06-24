@@ -939,8 +939,6 @@ pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
 	    {ber,false} ->
 		asn1ct_func:need({ber,ber_decode_nif,1}),
 		emit(["case catch ber_decode_nif(Data0) of",nl,
-		      "  {error,incomplete} ->",nl,
-		      "    {error,incomplete};",nl,
 		      "  {'EXIT',{error,Reason}} ->",nl,
 		      "    {error,Reason};",nl,
 		      "  {'EXIT',Reason} ->",nl,
@@ -950,8 +948,6 @@ pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
 	    {ber,true} ->
 		asn1ct_func:need({ber,ber_decode_nif,1}),
 		emit(["case catch ber_decode_nif(Data0) of",nl,
-		      "  {error,incomplete} ->",nl,
-		      "    {error,incomplete};",nl,
 		      "  {'EXIT',{error,Reason}} ->",nl,
 		      "    {error,Reason};",nl,
 		      "  {'EXIT',Reason} ->",nl,
@@ -968,8 +964,6 @@ pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
 	      end,
 	    
     emit(["case catch decode_disp(Type,",DecWrap,") of",nl,
-	  "  {error,incomplete} ->",nl,
-	  "    {error,incomplete};",nl,
 	  "  {'EXIT',{error,Reason}} ->",nl,
 	  "    {error,Reason};",nl,
 	  "  {'EXIT',Reason} ->",nl,

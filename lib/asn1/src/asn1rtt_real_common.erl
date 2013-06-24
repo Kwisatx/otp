@@ -219,7 +219,7 @@ decode_real(Buffer) ->
 
 decode_real2(Buffer, _C, 0, _RemBytes) ->
     {0,Buffer};
-decode_real2(<<>>, _C, _Len, _RemBytes1) -> throw({error,incomplete});
+decode_real2(<<>>, _C, _Len, _RemBytes1) -> exit({error,incomplete});
 decode_real2(Buffer0, _C, Len, RemBytes1) ->
     <<First, Buffer2/binary>> = Buffer0,
     if
@@ -244,7 +244,7 @@ decode_real2(Buffer0, _C, Len, RemBytes1) ->
 		    0 -> {2, decode_integer2(1, Buffer2, RemBytes1), RemBytes1+1};
 		    1 -> {3, decode_integer2(2, Buffer2, RemBytes1), RemBytes1+2};
 		    2 -> {4, decode_integer2(3, Buffer2, RemBytes1), RemBytes1+3};
-		    3 when Buffer2 == <<>> -> throw({error,incomplete});
+		    3 when Buffer2 == <<>> -> exit({error,incomplete});
 			3 ->
 			<<ExpLen1,RestBuffer/binary>> = Buffer2,
 			{ ExpLen1 + 2,
@@ -288,7 +288,7 @@ real_mininum_octets(Val, Acc) ->
     real_mininum_octets(Val bsr 8, [Val band 16#FF | Acc]).
 
 decode_integer2(_,<<>>,_) ->
-    throw({error,incomplete});
+    exit({error,incomplete});
 %% decoding postitive integer values.
 decode_integer2(Len, <<0:1,_:7,_Bs/binary>> = Bin, RemovedBytes) ->
     L = Len*8,

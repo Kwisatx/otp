@@ -25,7 +25,7 @@
         <<A:Size/binary, B/binary>> ->
             {A,B};
         _ when is_binary(Bin), is_integer(Size) ->
-            throw({error, incomplete});
+            exit({error,incomplete});
         _ -> erlang:error(badarg)
     end).
 -define(check_split(Bin,Size,Type1),
@@ -33,7 +33,7 @@
         <<A:Size/Type1, B/binary>> ->
             {A,B};
         _ when is_binary(Bin), is_integer(Size) ->
-            throw({error, incomplete});
+            exit({error,incomplete});
         _ -> erlang:error(badarg)
     end).
 -define(check_split(Bin,Size,Type1,Type2),
@@ -41,7 +41,7 @@
         <<A:Size/Type1, B/Type2>> ->
             {A,B};
         _ when is_binary(Bin), is_integer(Size) ->
-            throw({error, incomplete});
+            exit({error,incomplete});
         _ -> erlang:error(badarg)
     end).
 -define(check_split(Bin,Size,Type1,A,B),
@@ -49,7 +49,7 @@
         <<A:Size/Type1, B/binary>> ->
             {A,B};
         _ when is_binary(Bin), is_integer(Size) ->
-            throw({error, incomplete});
+            exit({error,incomplete});
         _ -> erlang:error(badarg)
     end).
 
@@ -60,7 +60,7 @@
         <<A:Size, B/bitstring>> ->
             {A,B};
         _ when is_bitstring(Bin), is_integer(Size) ->
-            throw({error, incomplete});
+            exit({error,incomplete});
         _ ->
             erlang:error(badarg)
     end).
@@ -69,7 +69,7 @@
         <<A:Size/Type1, B/bitstring>> -> 
             {A,B};
         _ when is_bitstring(Bin), is_integer(Size) ->
-            throw({error, incomplete});
+            exit({error,incomplete});
         _ ->
             erlang:error(badarg)
     end).
@@ -78,7 +78,7 @@
         <<A:Size/Type1, B/Type2>> ->
             {A,B};
         _ when is_bitstring(Bin), is_integer(Size) ->
-            throw({error, incomplete});
+            exit({error,incomplete});
         _ ->
             erlang:error(badarg)
     end).

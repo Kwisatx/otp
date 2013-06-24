@@ -80,7 +80,7 @@ load_nif() ->
 decode_ber_tlv(Binary) ->
     case decode_ber_tlv_raw(Binary) of
 	{error,{incomplete,_}} ->
-	    throw({error,incomplete});
+	    exit({error,incomplete});
 	{error,Reason} ->
 	    exit({error,{asn1,Reason}});
 	Other ->

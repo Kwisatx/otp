@@ -637,7 +637,7 @@ dcg_case_cs([C|Cs]) ->
     T1 = dcg_guard(T0),
     dcg_list_outside(T1),
     case Cs of
-	[] -> emit([";",nl,"_ ->",nl,"throw({error,incomplete})",nl]);
+	[] -> emit([";",nl,"_ ->",nl,"exit({error,incomplete})",nl]);
 	[_|_] -> emit([";",nl])
     end,
     dcg_case_cs(Cs);

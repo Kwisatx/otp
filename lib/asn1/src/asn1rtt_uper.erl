@@ -374,9 +374,9 @@ decode_length(<<2:2,Val:14,Rest/bitstring>>)  ->
 decode_length(<<3:2,_:14,_Rest/bitstring>>)  ->
     exit({error,{asn1,{decode_length,{nyi,above_16k}}}});
 decode_length(<<1:1,Rest/bitstring>>) when bit_size(Rest) < 15 ->
-    throw({error, incomplete});
+    exit({error,incomplete});
 decode_length(Bin) when bit_size(Bin) < 8 ->
-    throw({error, incomplete}).
+    exit({error,incomplete}).
 
 						% X.691:11
 encode_boolean(true) ->

@@ -54,7 +54,8 @@
       </type>
       <desc>
         <p>Decodes <c>Type</c> from <c>Module</c> from the binary <c>Bytes</c>.
-          Returns <c>{ok,Value}</c> if successful.</p>
+          Returns <c>{ok,Value}</c> if successful. Returns <c>{error, incomplete}</c>
+          if <c>Bytes</c> is an incomplete ASN.1 packet.</p>
 	<p>Use <c>Module:decode(Type, Bytes)</c> instead of this function.</p>
       </desc>
     </func>

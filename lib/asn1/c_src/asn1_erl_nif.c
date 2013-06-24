@@ -32,6 +32,7 @@
 #define ASN1_LEN_ERROR -4
 #define ASN1_INDEF_LEN_ERROR -5
 #define ASN1_VALUE_ERROR -6
+#define ASN1_INCOMPLETE -7
 
 #define ASN1_CLASS 0xc0
 #define ASN1_FORM 0x20
@@ -865,14 +866,14 @@ static int ber_decode(ErlNifEnv* env, ERL_NIF_TERM *term, unsigned char *in_buf,
 
     /*buffer must hold at least two bytes*/
     if ((*ib_index + 2) > in_buf_len)
-	return ASN1_VALUE_ERROR;
+	return ASN1_INCOMPLETE;
     /* "{{TagNo," */
     if ((form = ber_decode_tag(env, &tag, in_buf, in_buf_len, ib_index))
 	    <= ASN1_ERROR
 	    )
 	return form; /* 5 bytes */
     if (*ib_index >= in_buf_len) {
-	return ASN1_TAG_ERROR;
+	return ASN1_INCOMPLETE;
     }
     /* buffer must hold at least one byte (0 as length and nothing as
      value) */
@@ -909,7 +910,7 @@ static int ber_decode_tag(ErlNifEnv* env, ERL_NIF_TERM *tag, unsigned char *in_b
 	/* should check that at least three bytes are left in
 	 in-buffer,at least two tag byte and at least one length byte */
 	if ((*ib_index + 3) > in_buf_len)
-	    return ASN1_VALUE_ERROR;
+	    return ASN1_INCOMPLETE;
 	(*ib_index)++;
 	/* The tag is in the following bytes in in_buf as
 	 1ttttttt 1ttttttt ... 0ttttttt, where the t-bits
@@ -953,7 +954,7 @@ static int ber_decode_value(ErlNifEnv* env, ERL_NIF_TERM *value, unsigned char *
     else /* long definite length */{
 	lenoflen = (in_buf[*ib_index] & 0x7f); /*length of length */
 	if (lenoflen > (in_buf_len - (*ib_index + 1)))
-	    return ASN1_LEN_ERROR;
+	    return ASN1_INCOMPLETE;
 	len = 0;
 	while (lenoflen--) {
 	    (*ib_index)++;
@@ -963,14 +964,14 @@ static int ber_decode_value(ErlNifEnv* env, ERL_NIF_TERM *value, unsigned char *
 	}
     }
     if (len > (in_buf_len - (*ib_index + 1)))
-	return ASN1_VALUE_ERROR;
+	return ASN1_INCOMPLETE;
     (*ib_index)++;
     if (indef == 1) { /* in this case it is desireably to check that indefinite length
      end bytes exist in inbuffer */
 	curr_head = enif_make_list(env, 0);
 	while (!(in_buf[*ib_index] == 0 && in_buf[*ib_index + 1] == 0)) {
 	    if (*ib_index >= in_buf_len)
-		return ASN1_INDEF_LEN_ERROR;
+		return ASN1_INCOMPLETE;
 
 	    if ((maybe_ret = ber_decode(env, &term, in_buf, ib_index, in_buf_len))
 		    <= ASN1_ERROR
@@ -984,7 +985,7 @@ static int ber_decode_value(ErlNifEnv* env, ERL_NIF_TERM *value, unsigned char *
     {
 	int end_index = *ib_index + len;
 	if (end_index > in_buf_len)
-	    return ASN1_LEN_ERROR;
+	    return ASN1_INCOMPLETE;
 	curr_head = enif_make_list(env, 0);
 	while (*ib_index < end_index) {
 
@@ -997,7 +998,7 @@ static int ber_decode_value(ErlNifEnv* env, ERL_NIF_TERM *value, unsigned char *
 	enif_make_reverse_list(env, curr_head, value);
     } else {
 	if ((*ib_index + len) > in_buf_len)
-	    return ASN1_LEN_ERROR;
+	    return ASN1_INCOMPLETE;
 	tmp_out_buff = enif_make_new_binary(env, len, value);
 	memcpy(tmp_out_buff, in_buf + *ib_index, len);
 	*ib_index = *ib_index + len;
@@ -1235,6 +1236,9 @@ make_ber_error_term(ErlNifEnv* env, unsigned int return_code,
 	break;
     case ASN1_VALUE_ERROR:
 	reason = enif_make_atom(env, "invalid_value");
+	break;
+    case ASN1_INCOMPLETE:
+	reason = enif_make_atom(env, "incomplete");
 	break;
     default:
 	reason = enif_make_atom(env, "unknown");

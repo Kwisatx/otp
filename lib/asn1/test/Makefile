@@ -98,6 +98,7 @@ MODULES= \
 	testTCAP \
 	testSSLspecs \
 	testSelectionTypes \
+	test_incomplete_packet \
 	test_undecoded_rest \
 	testTcapsystem \
 	testNBAPsystem \

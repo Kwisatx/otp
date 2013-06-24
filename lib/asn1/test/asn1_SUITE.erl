@@ -73,6 +73,7 @@ groups() ->
        % Uses 'P-Record', 'Constraints', 'MEDIA-GATEWAY-CONTROL'...
        {group, [], [parse,
                     test_undecoded_rest,
+                    test_incomplete_packet,
                     specialized_decodes,
                     special_decode_performance,
                     testMegaco,
@@ -948,6 +949,13 @@ test_undecoded_rest(Config, Rule, Opts) ->
 do_test_undecoded_rest(Config, Rule, Opts) ->
     asn1_test_lib:compile("P-Record", Config, [Rule|Opts]),
     test_undecoded_rest:test(Opts, Config).
+
+test_incomplete_packet(Config) -> test(Config, fun test_incomplete_packet/3).
+test_incomplete_packet(Config, Rule, Opts) ->
+    asn1_test_lib:compile("P-Record", Config, [Rule|Opts]),
+    ok = test_incomplete_packet:test([], Config),
+    asn1_test_lib:compile("P-Record", Config, [Rule,undec_rest|Opts]),
+    test_incomplete_packet:test(undec_rest, Config).
 
 testTcapsystem(Config) ->
     test(Config, fun testTcapsystem/3).

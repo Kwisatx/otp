@@ -53,4 +53,13 @@ extension(_Rules) ->
 roundtrip(Type, Value) ->
     {ok,Encoded} = 'ChoExtension':encode(Type, Value),
     {ok,Value} = 'ChoExtension':decode(Type, Encoded),
+    case byte_size(Encoded) of
+        1 -> ok;
+        2 -> {error,incomplete} = 'ChoExtension':decode(Type, element(1, split_binary(Encoded, 1)));
+        3 -> {error,incomplete} = 'ChoExtension':decode(Type, element(1, split_binary(Encoded, 1))),
+             {error,incomplete} = 'ChoExtension':decode(Type, element(1, split_binary(Encoded, 2)));
+        N -> {error,incomplete} = 'ChoExtension':decode(Type, element(1, split_binary(Encoded, N-1))),
+             {error,incomplete} = 'ChoExtension':decode(Type, element(1, split_binary(Encoded, N-2))),
+             {error,incomplete} = 'ChoExtension':decode(Type, element(1, split_binary(Encoded, N-3)))
+    end,
     ok.

@@ -150,6 +150,16 @@ roundtrip(Type, Val1, Val2) ->
 roundtrip_1(Mod, Type, In, Out) ->
     {ok,Encoded} = Mod:encode(Type, In),
     {ok,Out} = Mod:decode(Type, Encoded),
+    case byte_size(Encoded) of
+        1 -> ok;
+        2 -> {error,incomplete} = Mod:decode(Type, element(1, split_binary(Encoded, 1)));
+        3 -> {error,incomplete} = Mod:decode(Type, element(1, split_binary(Encoded, 1))),
+             {error,incomplete} = Mod:decode(Type, element(1, split_binary(Encoded, 2)));
+        N -> {error,incomplete} = Mod:decode(Type, element(1, split_binary(Encoded, N-1))),
+             {error,incomplete} = Mod:decode(Type, element(1, split_binary(Encoded, N-2))),
+             {error,incomplete} = Mod:decode(Type, element(1, split_binary(Encoded, N-3)))
+    end,
+
     %% Test that compact BIT STRINGs can be encoded.
     {ok,Encoded} = Mod:encode(Type, Out),
     ok.

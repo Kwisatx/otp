@@ -45,4 +45,13 @@ recursive(_Rules) ->
 roundtrip(Type, Value) ->
     {ok,Encoded} = 'ChoRecursive':encode(Type, Value),
     {ok,Value} = 'ChoRecursive':decode(Type, Encoded),
+    case byte_size(Encoded) of
+        1 -> ok;
+        2 -> {error,incomplete} = 'ChoRecursive':decode(Type, element(1, split_binary(Encoded, 1)));
+        3 -> {error,incomplete} = 'ChoRecursive':decode(Type, element(1, split_binary(Encoded, 1))),
+             {error,incomplete} = 'ChoRecursive':decode(Type, element(1, split_binary(Encoded, 2)));
+        N -> {error,incomplete} = 'ChoRecursive':decode(Type, element(1, split_binary(Encoded, N-1))),
+             {error,incomplete} = 'ChoRecursive':decode(Type, element(1, split_binary(Encoded, N-2))),
+             {error,incomplete} = 'ChoRecursive':decode(Type, element(1, split_binary(Encoded, N-3)))
+    end,
     ok.

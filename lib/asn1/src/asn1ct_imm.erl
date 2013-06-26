@@ -945,9 +945,12 @@ dcg_list_outside([{convert,Op,V,Dst}|T]) ->
     emit([Dst," = ",Op,"(",V,")"]),
     iter_dcg_list_outside(T);
 dcg_list_outside([{get_bits,{_,Buf0},_,_}|_]=L0) ->
-    emit("<<"),
-    {L,Buf} = dcg_list_inside(L0, buf),
-    emit([Buf,"/bitstring>> = ",Buf0]),
+    {L,Buf,SzCheck,Dst,Emitted} = dcg_list_inside2(L0, buf, szc, dst, []),
+    emit(["{",Dst,",",Buf,"}"," = case ",Buf0," of",nl]),
+    emit(["<<"] ++ Emitted ++ [Buf,"temp/bitstring>> -> ","{",Dst,"temp,",Buf,"temp}",";",nl]),
+    emit(["_ when is_bitstring(",Buf0,")"] ++ SzCheck ++ [" -> exit({error,incomplete});",nl]),
+    emit(["_ -> erlang:error(badarg)",nl]),
+    emit("end"),
     iter_dcg_list_outside(L);
 dcg_list_outside([]) ->
     emit("ignore"),
@@ -999,6 +1002,21 @@ dcg_list_inside([{get_bits,{Sz,_},Fl0,{Dst,DstBuf}}|T], _) ->
     emit([mk_dest(Dst),":",Sz,Fl,","]),
     dcg_list_inside(T, DstBuf);
 dcg_list_inside(L, Dst) -> {L,Dst}.
+
+dcg_list_inside2([{get_bits,{Sz,_},Fl0,{Dst,DstBuf}}|T], _, _, OldDst2, Emitted) ->
+    Fl = bit_flags(Fl0, []),
+    Dst2 = mk_dest(Dst),
+    DstSuffix = case Dst2 of
+	'_' -> "";
+	_ -> "temp"
+    end,
+    {SzSuffix,SzCheck} = case OldDst2 of
+	Sz -> {"temp",""};
+	_ -> {"",[", is_integer(",Sz,")"]}
+    end,
+    NewEmitted = Emitted ++ [Dst2,DstSuffix,":",Sz,SzSuffix,Fl,","],
+    dcg_list_inside2(T, DstBuf, SzCheck, Dst2, NewEmitted);
+dcg_list_inside2(L, Dst, SzCheck, Dst2, Emitted) -> {L,Dst,SzCheck,Dst2,Emitted}.
 
 bit_flags([{align,_}|T], Acc) ->
     bit_flags(T, Acc);

@@ -416,8 +416,13 @@ skip_length_and_value(Binary) ->
 	    skip_indefinite_value(RestBinary);
 	{Length,RestBinary} ->
 	    L = Length * 8,
-	    {_,Rest} = ?check_split(RestBinary,L,integer),
-	    {ok,Rest}
+	    case RestBinary of
+        <<_A:L/integer, Rest/binary>> ->
+            {ok,Rest};
+        _ when is_binary(RestBinary), is_integer(L) ->
+            exit({error,incomplete});
+        _ -> erlang:error(badarg)
+        end
     end.
 
 skip_indefinite_value(<<0,0,Rest/binary>>) ->
@@ -432,8 +437,13 @@ get_value(Binary) ->
 	{indefinite,RestBinary} ->
 	    get_indefinite_value(RestBinary,[]);
 	{Length,RestBinary} ->
-	    {Value,_Rest} = ?check_split(RestBinary,Length),
-	    {ok,Value}
+	    case RestBinary of
+        <<Value:Length/binary, _B/binary>> ->
+            {ok,Value};
+        _ when is_binary(RestBinary), is_integer(Length) ->
+            exit({error,incomplete});
+        _ -> erlang:error(badarg)
+        end
     end.
 
 get_indefinite_value(<<0,0,_Rest/binary>>,Acc) ->
@@ -465,15 +475,24 @@ get_length_and_value(<<>>) ->
     exit({error,incomplete});
 get_length_and_value(Bin = <<0:1,Length:7,_T/binary>>) ->
     L = 1+Length,
-    {LenVal,Rest} = ?check_split(Bin,L),
-    {ok,{LenVal, Rest}};
+    case Bin of
+        <<LenVal:L/binary, Rest/binary>> ->
+            {ok,{LenVal, Rest}};
+        _ when is_binary(Bin), is_integer(L) ->
+            exit({error,incomplete});
+        _ -> erlang:error(badarg)
+    end;
 get_length_and_value(Bin = <<1:1,0:7,_T/binary>>) ->
     get_indefinite_length_and_value(Bin);
 get_length_and_value(<<1:1,LL:7,T/binary>>) ->
     L = LL * 8,
-    {Length,Rest} = ?check_split(T,L,integer,Length_,Rest_),
-    {Value,Rest2} = ?check_split(Rest,Length,binary,Value_,Rest2_),
-    {ok,{<<1:1,LL:7,Length:LL/unit:8,Value/binary>>,Rest2}}.
+    case T of
+        <<Length:L/integer, Value:Length/binary, Rest2/binary>> ->
+            {ok,{<<1:1,LL:7,Length:LL/unit:8,Value/binary>>,Rest2}};
+        _ when is_binary(T), is_integer(L) ->
+            exit({error,incomplete});
+        _ -> erlang:error(badarg)
+    end.
 
 get_indefinite_length_and_value(<<H,T/binary>>) ->
     get_indefinite_length_and_value(T,[H]).
@@ -552,8 +571,13 @@ decode_tag_and_length(<<Class:2, Form:1, 31:5, 1:1, TagPart1:7, 0:1, TagPartLast
 decode_tag_and_length(<<Class:2, Form:1, 31:5, Buffer/binary>>) ->
     {TagNo, Buffer1} = decode_tag(Buffer, 0),
     {Length, RestBuffer} = decode_length(Buffer1),
-    {V,RestBuffer2} = ?check_split(RestBuffer,Length),
-    {Form, (Class bsl 16) bor TagNo, V, RestBuffer2};
+    case RestBuffer of
+        <<V:Length/binary, RestBuffer2/binary>> ->
+            {Form, (Class bsl 16) bor TagNo, V, RestBuffer2};
+        _ when is_binary(RestBuffer), is_integer(Length) ->
+            exit({error,incomplete});
+        _ -> erlang:error(badarg)
+    end;
 decode_tag_and_length(<<_>>) ->
     exit({error,incomplete});
 decode_tag_and_length(<<_,_:1,L:7,Rest/binary>>) when byte_size(Rest) < L ->
@@ -1450,7 +1474,7 @@ decode_length(<<1:1,0:7,T/binary>>) ->
 decode_length(<<0:1,Length:7,T/binary>>) ->
     {Length,T};
 decode_length(<<1:1,LL:7,Length:LL/unit:8,T/binary>>) ->
-    Length =< byte_size(T) orelse exit({error,incomplete}),
+%    Length =< byte_size(T) orelse exit({error,incomplete}),
     {Length,T}.
 
 %% dynamicsort_SET_components(Arg) ->

@@ -36,22 +36,46 @@
 
 decode_fragmented(SegSz0, Buf0, Unit) ->
     SegSz = SegSz0 * Unit * ?'16K',
-    {Res,Buf} = ?check_bitstring_split(Buf0,SegSz,bitstring),
-    decode_fragmented_1(Buf, Unit, Res).
+    case Buf0 of 
+        <<Res:SegSz/bitstring, Buf/bitstring>> ->
+            decode_fragmented_1(Buf, Unit, Res);
+        _ when is_bitstring(Buf0), is_integer(SegSz) ->
+            exit({error,incomplete});
+        _ ->
+            erlang:error(badarg)
+    end.
 
 decode_fragmented_1(<<0:1,N:7,Buf0/bitstring>>, Unit, Res) ->
     Sz = N*Unit,
-    {S,Buf} = ?check_bitstring_split(Buf0,Sz,bitstring),
-    {<<Res/bitstring,S/bitstring>>,Buf};
+    case Buf0 of
+        <<S:Sz/bitstring, Buf/bitstring>> ->
+            {<<Res/bitstring,S/bitstring>>,Buf};
+        _ when is_bitstring(Buf0), is_integer(Sz) ->
+            exit({error,incomplete});
+        _ ->
+            erlang:error(badarg)
+    end;
 decode_fragmented_1(<<1:1,0:1,N:14,Buf0/bitstring>>, Unit, Res) ->
     Sz = N*Unit,
-    {S,Buf} = ?check_bitstring_split(Buf0,Sz,bitstring),
-    {<<Res/bitstring,S/bitstring>>,Buf};
+    case Buf0 of
+        <<S:Sz/bitstring, Buf/bitstring>> ->
+            {<<Res/bitstring,S/bitstring>>,Buf};
+        _ when is_bitstring(Buf0), is_integer(Sz) ->
+            exit({error,incomplete});
+        _ ->
+            erlang:error(badarg)
+    end;
 decode_fragmented_1(<<1:1,1:1,SegSz0:6,Buf0/bitstring>>, Unit, Res0) ->
     SegSz = SegSz0 * Unit * ?'16K',
-    {Frag,Buf} = ?check_bitstring_split(Buf0,SegSz,bitstring),
-    Res = <<Res0/bitstring,Frag/bitstring>>,
-    decode_fragmented_1(Buf, Unit, Res).
+    case Buf0 of
+        <<Frag:SegSz/bitstring, Buf/bitstring>> ->
+            Res = <<Res0/bitstring,Frag/bitstring>>,
+            decode_fragmented_1(Buf, Unit, Res);
+        _ when is_bitstring(Buf0), is_integer(SegSz) ->
+            exit({error,incomplete});
+        _ ->
+            erlang:error(badarg)
+    end.
 
 decode_named_bit_string(Val, NNL) ->
     Bits = [B || <<B:1>> <= Val],

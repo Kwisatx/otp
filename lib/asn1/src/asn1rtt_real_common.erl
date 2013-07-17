@@ -228,8 +228,13 @@ decode_real2(Buffer0, _C, Len, RemBytes1) ->
 	First =:= 1 orelse First =:= 2 orelse First =:= 3 ->
 	    %% charcter string encoding of base 10
 	    L = Len-1,
-	    {NRx,Rest} = ?check_split(Buffer2,L),
-	    {binary_to_list(NRx),Rest,Len};
+	    case Buffer2 of
+	        <<NRx:L/binary, Rest/binary>> ->
+	            {binary_to_list(NRx),Rest,Len};
+	        _ when is_binary(Buffer2), is_integer(L) ->
+	            exit({error,incomplete});
+	        _ -> erlang:error(badarg)
+	    end;
 	true ->
 	    %% have some check here to verify only supported bases (2)
 	    %% not base 8 or 16
@@ -255,16 +260,22 @@ decode_real2(Buffer0, _C, Len, RemBytes1) ->
 
 	    Length = Len - FirstLen,
 	    L = Length * 8,
-	    {LongInt,RestBuff} = ?check_split(Buffer3,L,integer),
-	    {{Mantissa, Buffer4}, RemBytes3} =
-		if Sign =:= 0 ->
-			%%			io:format("sign plus~n"),
-			{{LongInt, RestBuff}, 1 + Length};
-		   true ->
-			%%			io:format("sign minus~n"),
-			{{-LongInt, RestBuff}, 1 + Length}
-		end,
-	    {{Mantissa, Base, Exp}, Buffer4, RemBytes2+RemBytes3}
+	    case Buffer3 of
+	        <<LongInt:L/integer, RestBuff/binary>> ->
+	            {{Mantissa, Buffer4}, RemBytes3} =
+		            if Sign =:= 0 ->
+			            %%			io:format("sign plus~n"),
+			            {{LongInt, RestBuff}, 1 + Length};
+		               true ->
+			            %%			io:format("sign minus~n"),
+			            {{-LongInt, RestBuff}, 1 + Length}
+		            end,
+	                {{Mantissa, Base, Exp}, Buffer4, RemBytes2+RemBytes3};
+	        _ when is_binary(Buffer3), is_integer(L) ->
+	            exit({error,incomplete});
+	        _ -> erlang:error(badarg)
+	    end
+	    
     end.
 
 encode_pos_integer(0, [B|_Acc]=L) when B < 128 ->
@@ -292,11 +303,21 @@ decode_integer2(_,<<>>,_) ->
 %% decoding postitive integer values.
 decode_integer2(Len, <<0:1,_:7,_Bs/binary>> = Bin, RemovedBytes) ->
     L = Len*8,
-    {Int,Buffer2} = ?check_split(Bin,L,integer),
-    {Int,Buffer2,RemovedBytes};
+    case Bin of
+        <<Int:L/integer, Buffer2/binary>> ->
+            {Int,Buffer2,RemovedBytes};
+        _ when is_binary(Bin), is_integer(L) ->
+            exit({error,incomplete});
+        _ -> erlang:error(badarg)
+    end;
 %% decoding negative integer values.
 decode_integer2(Len, <<1:1,B2:7,Bs/binary>>, RemovedBytes)  ->
     L = Len*8,
-    {N,Buffer2} = ?check_split(<<B2,Bs/binary>>,L,integer),
-    Int = N - (1 bsl (8 * Len - 1)),
-    {Int,Buffer2,RemovedBytes}.
+    case <<B2,Bs/binary>> of
+        <<N:L/integer, Buffer2/binary>> ->
+            Int = N - (1 bsl (8 * Len - 1)),
+            {Int,Buffer2,RemovedBytes};
+        _ when is_binary(<<B2,Bs/binary>>), is_integer(L) ->
+            exit({error,incomplete});
+        _ -> erlang:error(badarg)
+    end.

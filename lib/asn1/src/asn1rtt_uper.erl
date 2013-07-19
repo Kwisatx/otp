@@ -632,31 +632,34 @@ make_and_set_list([], _) ->
 %% encode_octet_string(Constraint, Val)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+encode_octet_string(Val) when is_list(Val) ->
+    encode_octet_string(list_to_binary(Val));
 encode_octet_string(Val) ->
     try
-	[encode_length(length(Val)),list_to_binary(Val)]
+	[encode_length(byte_size(Val)),Val]
     catch
 	error:{error,{asn1,{encode_length,_}}} ->
 	    encode_fragmented_octet_string(Val)
     end.
 
+encode_octet_string(C,Val) when is_list(Val) ->
+    encode_octet_string(C, list_to_binary(Val));
 encode_octet_string(C, Val) ->
     case C of
 	{_,_}=VR  ->
 	    try
-		[encode_length(VR, length(Val)),list_to_binary(Val)]
+		[encode_length(VR, byte_size(Val)),Val]
 	    catch
 		error:{error,{asn1,{encode_length,_}}} ->
 		    encode_fragmented_octet_string(Val)
 	    end;
-	Sv when is_integer(Sv), Sv =:= length(Val) -> % fixed length
-	    list_to_binary(Val)
+	Sv when is_integer(Sv), Sv =:= byte_size(Val) -> % fixed length
+	    Val
     end.
 
 
 encode_fragmented_octet_string(Val) ->
-    Bin = list_to_binary(Val),
-    efos_1(Bin).
+    efos_1(Val).
 
 efos_1(<<B:16#10000/binary,T/binary>>) ->
     [<<3:2,4:6>>,B|efos_1(T)];

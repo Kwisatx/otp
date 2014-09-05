@@ -804,9 +804,9 @@ pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
     emit([nl,nl]),
 
     Return_rest = proplists:get_bool(undec_rest, Options),
-    Data = case Erules of
-	       ber -> "Data0";
-	       _ -> "Data"
+    {Data,End} = case Erules of
+	       ber -> {"Data0",["end",nl]};
+	       _ -> {"Data",[]}
 	   end,
 
     emit(["decode(Type,",Data,") ->",nl]),
@@ -849,7 +849,7 @@ pgen_dispatcher(Erules,_Module,{Types,_Values,_,_,_Objects,_ObjectSets}) ->
     end,
     case NoOkWrapper of
 	false ->
-	    emit([nl,try_catch(),nl,nl]);
+	    emit([nl,try_catch(End),nl,nl]);
 	true ->
 	    emit([nl,"end.",nl,nl])
     end,
@@ -880,6 +880,8 @@ result_line_1(Items) ->
     ["{",string:join(Items, ","),"}"].
 
 try_catch() ->
+    try_catch([]).
+try_catch(End) ->
     ["  catch",nl,
      "    Class:Exception when Class =:= error; Class =:= exit ->",nl,
      "      case Exception of",nl,
@@ -887,7 +889,7 @@ try_catch() ->
      "          Error;",nl,
      "        Reason ->",nl,
      "         {error,{asn1,Reason}}",nl,
-     "      end",nl,
+     "      end",nl,End,
      "end."].
 
 gen_info_functions(Erules) ->
